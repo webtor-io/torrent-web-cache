@@ -35,7 +35,6 @@ func (s *CompletedPiecesLoader) get() (*CompletedPieces, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to fetch completed pieces")
 	}
-	defer r.Close()
 	cp := &CompletedPieces{}
 	if r != nil {
 		err = cp.Load(r)
@@ -43,5 +42,6 @@ func (s *CompletedPiecesLoader) get() (*CompletedPieces, error) {
 			return nil, errors.Wrap(err, "Failed to load completed pieces")
 		}
 	}
+	defer r.Close()
 	return cp, nil
 }

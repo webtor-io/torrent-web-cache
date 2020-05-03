@@ -36,10 +36,10 @@ func (s *MetaInfoLoader) get() (*metainfo.MetaInfo, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to fetch torrent")
 	}
-	defer r.Close()
 	if r == nil {
 		return nil, nil
 	}
+	defer r.Close()
 	mi, err := metainfo.Load(r)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to load torrent")

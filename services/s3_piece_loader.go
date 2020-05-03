@@ -40,10 +40,10 @@ func (s *S3PieceLoader) get() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to fetch piece")
 	}
-	defer p.Close()
 	if p == nil {
 		return nil, nil
 	}
+	defer p.Close()
 	b, err := ioutil.ReadAll(p)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to read piece")
