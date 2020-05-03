@@ -39,7 +39,7 @@ func (s *HTTPPieceLoader) Get() ([]byte, error) {
 
 func (s *HTTPPieceLoader) get() ([]byte, error) {
 	t := time.Now()
-	u := fmt.Sprintf("%v/%v/.piece/%v", s.src, s.h, s.p)
+	u := fmt.Sprintf("%v/%v/piece/%v", s.src, s.h, s.p)
 	r, err := s.cl.Get(u)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to fetch torrent piece")
