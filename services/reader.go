@@ -97,7 +97,7 @@ func (r *Reader) getPiece(p *metainfo.Piece, i *metainfo.Info, fi *metainfo.File
 	length = p.Length()
 	if cp.Has(p.Hash()) {
 		b, err = r.s3pp.Get(r.hash, p.Hash().HexString())
-		if b == nil {
+		if b == nil || err != nil {
 			b, err = r.httppp.Get(r.src, r.hash, p.Hash().HexString())
 		}
 	} else {
@@ -136,16 +136,13 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	pr.Seek(offset-start, io.SeekStart)
 	lr := io.LimitReader(pr, start+length-offset)
 	n, err = lr.Read(p)
-	if err != nil {
-		log.WithError(err).Error("Failed to read Piece data")
-		return 0, errors.Wrap(err, "Failed to read Piece data")
-	}
 	r.offset = r.offset + int64(n)
 	if err != io.EOF {
 		return
 	} else if err == io.EOF && lastPiece {
 		return n, io.EOF
 	} else {
+		log.WithError(err).Error("Failed to read Piece data")
 		return n, nil
 	}
 }

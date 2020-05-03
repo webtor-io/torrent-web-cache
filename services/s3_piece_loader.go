@@ -38,7 +38,7 @@ func (s *S3PieceLoader) get() ([]byte, error) {
 	t := time.Now()
 	p, err := s.st.GetPiece(s.infoHash, s.pieceHash)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to fetch piece")
+		return nil, errors.Wrapf(err, "Failed to fetch s3 piece %v/%v", s.infoHash, s.pieceHash)
 	}
 	if p == nil {
 		return nil, nil
@@ -46,7 +46,7 @@ func (s *S3PieceLoader) get() ([]byte, error) {
 	defer p.Close()
 	b, err := ioutil.ReadAll(p)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to read piece")
+		return nil, errors.Wrapf(err, "Failed to read s3 piece %v/%v", s.infoHash, s.pieceHash)
 	}
 	log.Infof("Finish loading S3 piece infohash=%v piecehash=%v time=%v", s.infoHash, s.pieceHash, time.Since(t))
 	return b, nil
