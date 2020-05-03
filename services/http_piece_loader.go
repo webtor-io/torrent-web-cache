@@ -42,12 +42,12 @@ func (s *HTTPPieceLoader) get() ([]byte, error) {
 	u := fmt.Sprintf("%v/%v/piece/%v", s.src, s.h, s.p)
 	r, err := s.cl.Get(u)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to fetch torrent piece")
+		return nil, errors.Wrapf(err, "Failed to fetch torrent piece src=%v", u)
 	}
 	defer r.Body.Close()
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to read piece")
+		return nil, errors.Wrapf(err, "Failed to read piece src=%v", u)
 	}
 	log.Infof("Finish loading source piece src=%v time=%v", u, time.Since(t))
 	return b, err
