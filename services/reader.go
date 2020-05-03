@@ -19,6 +19,7 @@ type Reader struct {
 	ttp         *TorrentTouchPool
 	mip         *MetaInfoPool
 	src         string
+	query       string
 	hash        string
 	path        string
 	redirectURL string
@@ -36,8 +37,9 @@ func NewReader(cpp *CompletedPiecesPool, mip *MetaInfoPool, s3pp *S3PiecePool, h
 	hash := parts[1]
 	path := parts[2]
 	src := u.Scheme + "://" + u.Host
+	query := u.RawQuery
 	redirectURL := u.RequestURI()
-	return &Reader{ttp: ttp, s3pp: s3pp, httppp: httppp, cpp: cpp, mip: mip, src: src, hash: hash, path: path, redirectURL: redirectURL, offset: 0}, nil
+	return &Reader{ttp: ttp, s3pp: s3pp, httppp: httppp, cpp: cpp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0}, nil
 }
 
 func (r *Reader) Path() string {
@@ -98,10 +100,10 @@ func (r *Reader) getPiece(p *metainfo.Piece, i *metainfo.Info, fi *metainfo.File
 	if cp.Has(p.Hash()) {
 		b, err = r.s3pp.Get(r.hash, p.Hash().HexString())
 		if b == nil || err != nil {
-			b, err = r.httppp.Get(r.src, r.hash, p.Hash().HexString())
+			b, err = r.httppp.Get(r.src, r.hash, p.Hash().HexString(), r.query)
 		}
 	} else {
-		b, err = r.httppp.Get(r.src, r.hash, p.Hash().HexString())
+		b, err = r.httppp.Get(r.src, r.hash, p.Hash().HexString(), r.query)
 	}
 	if terr := r.ttp.Touch(r.hash); terr != nil {
 		log.WithError(terr).Error("Failed to touch torrent")

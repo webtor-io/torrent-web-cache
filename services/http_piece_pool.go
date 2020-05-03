@@ -22,9 +22,9 @@ func NewHTTPPiecePool(cl *http.Client) *HTTPPiecePool {
 	return &HTTPPiecePool{cl: cl, expire: time.Duration(HTTP_PIECE_TTL) * time.Second}
 }
 
-func (s *HTTPPiecePool) Get(src string, h string, p string) ([]byte, error) {
+func (s *HTTPPiecePool) Get(src string, h string, p string, q string) ([]byte, error) {
 	key := p
-	v, _ := s.sm.LoadOrStore(key, NewHTTPPieceLoader(s.cl, src, h, p))
+	v, _ := s.sm.LoadOrStore(key, NewHTTPPieceLoader(s.cl, src, h, p, q))
 	t, tLoaded := s.timers.LoadOrStore(key, time.NewTimer(s.expire))
 	timer := t.(*time.Timer)
 	if !tLoaded {

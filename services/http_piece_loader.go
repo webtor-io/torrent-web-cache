@@ -16,14 +16,15 @@ type HTTPPieceLoader struct {
 	src    string
 	h      string
 	p      string
+	q      string
 	mux    sync.Mutex
 	r      []byte
 	err    error
 	inited bool
 }
 
-func NewHTTPPieceLoader(cl *http.Client, src string, h string, p string) *HTTPPieceLoader {
-	return &HTTPPieceLoader{cl: cl, src: src, h: h, p: p, inited: false}
+func NewHTTPPieceLoader(cl *http.Client, src string, h string, p string, q string) *HTTPPieceLoader {
+	return &HTTPPieceLoader{cl: cl, src: src, h: h, p: p, q: q, inited: false}
 }
 
 func (s *HTTPPieceLoader) Get() ([]byte, error) {
@@ -40,6 +41,10 @@ func (s *HTTPPieceLoader) Get() ([]byte, error) {
 func (s *HTTPPieceLoader) get() ([]byte, error) {
 	t := time.Now()
 	u := fmt.Sprintf("%v/%v/piece/%v", s.src, s.h, s.p)
+	if s.q != "" {
+		u = u + "?" + s.q
+	}
+	log.Infof("Start loading source piece src=%v", u)
 	r, err := s.cl.Get(u)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to fetch torrent piece src=%v", u)
