@@ -145,9 +145,19 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 		log.WithError(err).Error("Failed to read Piece data")
 		return
 	} else if err == io.EOF && lastPiece {
+		if pr != nil {
+			pr.Close()
+		}
 		return n, io.EOF
 	}
 	return n, nil
+}
+
+func (r *Reader) Close() error {
+	if r.cr != nil {
+		r.cr.Close()
+	}
+	return nil
 }
 
 func (r *Reader) Seek(offset int64, whence int) (int64, error) {

@@ -64,6 +64,7 @@ func (s *Web) Serve() error {
 			return
 		}
 		re, err := s.rp.Get(url)
+		defer re.Close()
 		if err != nil {
 			log.WithError(err).Errorf("Failed get reader for url=%v", url)
 			w.WriteHeader(500)
