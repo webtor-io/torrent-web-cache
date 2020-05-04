@@ -32,7 +32,6 @@ func (s *HTTPPiecePool) Get(src string, h string, p string, q string) ([]byte, e
 			<-timer.C
 			s.sm.Delete(key)
 			s.timers.Delete(key)
-			v.(*HTTPPieceLoader).Clear()
 		}()
 	} else {
 		s.mux.Lock()

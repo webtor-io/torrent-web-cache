@@ -34,10 +34,6 @@ func (s *S3PieceLoader) Get() ([]byte, error) {
 	return s.r, s.err
 }
 
-func (s *S3PieceLoader) Clear() {
-	s.r = nil
-}
-
 func (s *S3PieceLoader) get() ([]byte, error) {
 	t := time.Now()
 	p, err := s.st.GetPiece(s.infoHash, s.pieceHash)

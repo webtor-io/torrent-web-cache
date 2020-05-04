@@ -31,7 +31,6 @@ func (s *S3PiecePool) Get(h string, p string) ([]byte, error) {
 			<-timer.C
 			s.sm.Delete(key)
 			s.timers.Delete(key)
-			v.(*S3PieceLoader).Clear()
 		}()
 	} else {
 		s.mux.Lock()
