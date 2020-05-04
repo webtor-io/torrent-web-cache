@@ -122,7 +122,7 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 		lastPiece = true
 	}
 	start := piece.Offset()
-	length := piece.Length()
+	// length := piece.Length()
 	var pr *os.File
 	if r.cr == nil {
 		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query)
@@ -138,8 +138,9 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	r.cr = pr
 	r.pn = pieceNum
 	pr.Seek(offset-start, io.SeekStart)
-	lr := io.LimitReader(pr, start+length-offset)
-	n, err = lr.Read(p)
+	n, err = pr.Read(p)
+	// lr := io.LimitReader(pr, start+length-offset)
+	// n, err = lr.Read(p)
 	r.offset = r.offset + int64(n)
 	if err != nil && err != io.EOF {
 		log.WithError(err).Error("Failed to read Piece data")

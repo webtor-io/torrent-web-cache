@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	PIECE_TTL = 600
+	PIECE_TTL = 30
 )
 
 type PiecePool struct {
