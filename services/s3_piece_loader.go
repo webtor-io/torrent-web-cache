@@ -1,7 +1,7 @@
 package services
 
 import (
-	"io/ioutil"
+	"io"
 	"sync"
 	"time"
 
@@ -14,7 +14,7 @@ type S3PieceLoader struct {
 	infoHash  string
 	pieceHash string
 	mux       sync.Mutex
-	r         []byte
+	r         io.ReadCloser
 	err       error
 	inited    bool
 }
@@ -23,7 +23,7 @@ func NewS3PieceLoader(infoHash string, pieceHash string, st *S3Storage) *S3Piece
 	return &S3PieceLoader{st: st, infoHash: infoHash, pieceHash: pieceHash, inited: false}
 }
 
-func (s *S3PieceLoader) Get() ([]byte, error) {
+func (s *S3PieceLoader) Get() (io.ReadCloser, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if s.inited {
@@ -34,7 +34,7 @@ func (s *S3PieceLoader) Get() ([]byte, error) {
 	return s.r, s.err
 }
 
-func (s *S3PieceLoader) get() ([]byte, error) {
+func (s *S3PieceLoader) get() (io.ReadCloser, error) {
 	t := time.Now()
 	p, err := s.st.GetPiece(s.infoHash, s.pieceHash)
 	if err != nil {
@@ -43,11 +43,6 @@ func (s *S3PieceLoader) get() ([]byte, error) {
 	if p == nil {
 		return nil, nil
 	}
-	defer p.Close()
-	b, err := ioutil.ReadAll(p)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to read s3 piece %v/%v", s.infoHash, s.pieceHash)
-	}
 	log.Infof("Finish loading S3 piece infohash=%v piecehash=%v time=%v", s.infoHash, s.pieceHash, time.Since(t))
-	return b, nil
+	return p, nil
 }

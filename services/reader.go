@@ -1,9 +1,9 @@
 package services
 
 import (
-	"bytes"
 	"io"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/anacrolix/torrent/metainfo"
@@ -13,9 +13,7 @@ import (
 )
 
 type Reader struct {
-	s3pp        *S3PiecePool
-	httppp      *HTTPPiecePool
-	cpp         *CompletedPiecesPool
+	pp          *PiecePool
 	ttp         *TorrentTouchPool
 	mip         *MetaInfoPool
 	src         string
@@ -26,9 +24,11 @@ type Reader struct {
 	offset      int64
 	fileInfo    *metainfo.FileInfo
 	info        *metainfo.Info
+	pn          int64
+	cr          *os.File
 }
 
-func NewReader(cpp *CompletedPiecesPool, mip *MetaInfoPool, s3pp *S3PiecePool, httppp *HTTPPiecePool, ttp *TorrentTouchPool, s string) (*Reader, error) {
+func NewReader(mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string) (*Reader, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to parse source url=%v", s)
@@ -39,7 +39,7 @@ func NewReader(cpp *CompletedPiecesPool, mip *MetaInfoPool, s3pp *S3PiecePool, h
 	src := u.Scheme + "://" + u.Host
 	query := u.RawQuery
 	redirectURL := u.RequestURI()
-	return &Reader{ttp: ttp, s3pp: s3pp, httppp: httppp, cpp: cpp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0}, nil
+	return &Reader{ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0}, nil
 }
 
 func (r *Reader) Path() string {
@@ -94,27 +94,15 @@ func (r *Reader) getFileInfo() (*metainfo.FileInfo, error) {
 }
 
 func (r *Reader) getPiece(p *metainfo.Piece, i *metainfo.Info, fi *metainfo.FileInfo) (b []byte, start int64, length int64, err error) {
-	cp, err := r.cpp.Get(r.hash)
-	if err != nil {
-		return nil, 0, 0, errors.Wrap(err, "Failed to get Completed Pieces")
-	}
-	start = p.Offset()
-	length = p.Length()
-	if cp.Has(p.Hash()) {
-		b, err = r.s3pp.Get(r.hash, p.Hash().HexString())
-		if b == nil || err != nil {
-			b, err = r.httppp.Get(r.src, r.hash, p.Hash().HexString(), r.query)
-		}
-	} else {
-		b, err = r.httppp.Get(r.src, r.hash, p.Hash().HexString(), r.query)
-	}
-	if terr := r.ttp.Touch(r.hash); terr != nil {
-		log.WithError(terr).Error("Failed to touch torrent")
-	}
 	return
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {
+	defer func() {
+		if err := r.ttp.Touch(r.hash); err != nil {
+			log.WithError(err).Error("Failed to touch torrent")
+		}
+	}()
 	fi, err := r.getFileInfo()
 	if err != nil {
 		return 0, errors.Wrap(err, "Failed to get FileInfo")
@@ -133,11 +121,22 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	if fi.Offset(i)+fi.Length <= piece.Offset()+piece.Length() {
 		lastPiece = true
 	}
-	pd, start, length, err := r.getPiece(&piece, i, fi)
+	start := piece.Offset()
+	length := piece.Length()
+	var pr *os.File
+	if r.cr == nil {
+		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query)
+	} else if r.cr != nil && pieceNum != r.pn {
+		r.cr.Close()
+		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query)
+	} else {
+		pr = r.cr
+	}
 	if err != nil {
 		return 0, errors.Wrap(err, "Failed to get Piece data")
 	}
-	pr := bytes.NewReader(pd)
+	r.cr = pr
+	r.pn = pieceNum
 	pr.Seek(offset-start, io.SeekStart)
 	lr := io.LimitReader(pr, start+length-offset)
 	n, err = lr.Read(p)

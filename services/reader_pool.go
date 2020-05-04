@@ -1,17 +1,15 @@
 package services
 
 type ReaderPool struct {
-	cpp    *CompletedPiecesPool
-	mip    *MetaInfoPool
-	s3pp   *S3PiecePool
-	httppp *HTTPPiecePool
-	ttp    *TorrentTouchPool
+	pp  *PiecePool
+	mip *MetaInfoPool
+	ttp *TorrentTouchPool
 }
 
-func NewReaderPool(cpp *CompletedPiecesPool, mip *MetaInfoPool, s3pp *S3PiecePool, httppp *HTTPPiecePool, ttp *TorrentTouchPool) *ReaderPool {
-	return &ReaderPool{cpp: cpp, mip: mip, s3pp: s3pp, httppp: httppp, ttp: ttp}
+func NewReaderPool(pp *PiecePool, mip *MetaInfoPool, ttp *TorrentTouchPool) *ReaderPool {
+	return &ReaderPool{mip: mip, pp: pp, ttp: ttp}
 }
 
 func (rp *ReaderPool) Get(url string) (*Reader, error) {
-	return NewReader(rp.cpp, rp.mip, rp.s3pp, rp.httppp, rp.ttp, url)
+	return NewReader(rp.mip, rp.pp, rp.ttp, url)
 }

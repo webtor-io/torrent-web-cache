@@ -17,6 +17,7 @@ func configure(app *cli.App) {
 	s.RegisterS3ClientFlags(app)
 	s.RegisterS3StorageFlags(app)
 	s.RegisterWebFlags(app)
+	s.RegisterPieceLoaderFlags(app)
 	app.Action = run
 }
 
@@ -52,8 +53,11 @@ func run(c *cli.Context) error {
 	// Setting HTTP Piece Pool
 	httppp := s.NewHTTPPiecePool(cl)
 
+	// Setting Piece Pool
+	pp := s.NewPiecePool(c, cpp, s3pp, httppp)
+
 	// Setting Reader Pool
-	rp := s.NewReaderPool(cpp, mip, s3pp, httppp, ttp)
+	rp := s.NewReaderPool(pp, mip, ttp)
 
 	// Setting ProbeService
 	probe := cs.NewProbe(c)

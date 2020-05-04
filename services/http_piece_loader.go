@@ -2,7 +2,7 @@ package services
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -18,7 +18,7 @@ type HTTPPieceLoader struct {
 	p      string
 	q      string
 	mux    sync.Mutex
-	r      []byte
+	r      io.ReadCloser
 	err    error
 	inited bool
 }
@@ -27,7 +27,7 @@ func NewHTTPPieceLoader(cl *http.Client, src string, h string, p string, q strin
 	return &HTTPPieceLoader{cl: cl, src: src, h: h, p: p, q: q, inited: false}
 }
 
-func (s *HTTPPieceLoader) Get() ([]byte, error) {
+func (s *HTTPPieceLoader) Get() (io.ReadCloser, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if s.inited {
@@ -38,7 +38,7 @@ func (s *HTTPPieceLoader) Get() ([]byte, error) {
 	return s.r, s.err
 }
 
-func (s *HTTPPieceLoader) get() ([]byte, error) {
+func (s *HTTPPieceLoader) get() (io.ReadCloser, error) {
 	t := time.Now()
 	u := fmt.Sprintf("%v/%v/piece/%v", s.src, s.h, s.p)
 	if s.q != "" {
@@ -49,11 +49,6 @@ func (s *HTTPPieceLoader) get() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to fetch torrent piece src=%v", u)
 	}
-	defer r.Body.Close()
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to read piece src=%v", u)
-	}
 	log.Infof("Finish loading source piece src=%v time=%v", u, time.Since(t))
-	return b, err
+	return r.Body, nil
 }
