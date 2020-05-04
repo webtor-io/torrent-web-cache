@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	S3_PIECE_TTL = 60
+	S3_PIECE_TTL = 10
 )
 
 type S3PiecePool struct {

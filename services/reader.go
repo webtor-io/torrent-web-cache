@@ -82,12 +82,15 @@ func (r *Reader) getFileInfo() (*metainfo.FileInfo, error) {
 		return nil, err
 	}
 	for _, f := range info.UpvertedFiles() {
-		if info.Name+"/"+strings.Join(f.Path, "/") == r.path {
+		tt := []string{}
+		tt = append(tt, info.Name)
+		tt = append(tt, f.Path...)
+		if strings.Join(tt, "/") == r.path {
 			r.fileInfo = &f
 			return &f, nil
 		}
 	}
-	return nil, errors.Errorf("File not found path=%v", r.path)
+	return nil, errors.Errorf("File not found path=%v infohash=%v", r.path, r.hash)
 }
 
 func (r *Reader) getPiece(p *metainfo.Piece, i *metainfo.Info, fi *metainfo.FileInfo) (b []byte, start int64, length int64, err error) {
@@ -139,14 +142,13 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	lr := io.LimitReader(pr, start+length-offset)
 	n, err = lr.Read(p)
 	r.offset = r.offset + int64(n)
-	if err != io.EOF {
+	if err != nil && err != io.EOF {
+		log.WithError(err).Error("Failed to read Piece data")
 		return
 	} else if err == io.EOF && lastPiece {
 		return n, io.EOF
-	} else {
-		log.WithError(err).Error("Failed to read Piece data")
-		return n, nil
 	}
+	return n, nil
 }
 
 func (r *Reader) Seek(offset int64, whence int) (int64, error) {

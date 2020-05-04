@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	HTTP_PIECE_TTL = 60
+	HTTP_PIECE_TTL = 10
 )
 
 type HTTPPiecePool struct {
