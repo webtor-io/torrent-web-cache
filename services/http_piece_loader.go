@@ -38,6 +38,10 @@ func (s *HTTPPieceLoader) Get() ([]byte, error) {
 	return s.r, s.err
 }
 
+func (s *HTTPPieceLoader) Clear() {
+	s.r = nil
+}
+
 func (s *HTTPPieceLoader) get() ([]byte, error) {
 	t := time.Now()
 	u := fmt.Sprintf("%v/%v/piece/%v", s.src, s.h, s.p)
