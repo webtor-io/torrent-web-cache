@@ -20,17 +20,14 @@ func NewTorrentTouchPool(st *S3Storage) *TorrentTouchPool {
 	return &TorrentTouchPool{expire: time.Duration(TORRENT_TOUCH_TTL) * time.Second, st: st}
 }
 
-func (s *TorrentTouchPool) Touch(h string) (err error) {
-	v, _ := s.sm.LoadOrStore(h, NewTorrentToucher(h, s.st))
-	t, tLoaded := s.timers.LoadOrStore(h, time.NewTimer(s.expire))
-	timer := t.(*time.Timer)
-	if !tLoaded {
+func (s *TorrentTouchPool) Touch(h string) error {
+	v, loaded := s.sm.LoadOrStore(h, NewTorrentToucher(h, s.st))
+	if !loaded {
+		return v.(*TorrentToucher).Touch()
 		go func() {
-			<-timer.C
+			<-time.After(s.expire)
 			s.sm.Delete(h)
-			s.timers.Delete(h)
 		}()
 	}
-	err = v.(*TorrentToucher).Touch()
-	return
+	return nil
 }
