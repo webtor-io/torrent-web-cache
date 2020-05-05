@@ -40,7 +40,9 @@ func (s *PiecePool) Get(src string, h string, p string, q string) (*os.File, err
 			v.(*PieceLoader).Clear()
 		}()
 	} else {
+		s.mux.Lock()
 		timer.Reset(s.expire)
+		s.mux.Unlock()
 	}
 
 	return v.(*PieceLoader).Get()
