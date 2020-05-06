@@ -37,11 +37,11 @@ func (s *CompletedPiecesLoader) get() (*CompletedPieces, error) {
 	}
 	cp := &CompletedPieces{}
 	if r != nil {
+		defer r.Close()
 		err = cp.Load(r)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to load completed pieces")
 		}
 	}
-	defer r.Close()
 	return cp, nil
 }
