@@ -63,5 +63,5 @@ func (s *PieceLoader) get() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get piece hash=%v piece=%v", s.h, s.p)
 	}
-	return NewReaderWrapper(r, s.end), nil
+	return r, nil
 }
