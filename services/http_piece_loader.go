@@ -21,10 +21,12 @@ type HTTPPieceLoader struct {
 	r      io.ReadCloser
 	err    error
 	inited bool
+	start  int64
+	end    int64
 }
 
-func NewHTTPPieceLoader(cl *http.Client, src string, h string, p string, q string) *HTTPPieceLoader {
-	return &HTTPPieceLoader{cl: cl, src: src, h: h, p: p, q: q, inited: false}
+func NewHTTPPieceLoader(cl *http.Client, src string, h string, p string, q string, start int64, end int64) *HTTPPieceLoader {
+	return &HTTPPieceLoader{cl: cl, src: src, h: h, p: p, q: q, inited: false, start: start, end: end}
 }
 
 func (s *HTTPPieceLoader) Get() (io.ReadCloser, error) {
@@ -44,11 +46,14 @@ func (s *HTTPPieceLoader) get() (io.ReadCloser, error) {
 	if s.q != "" {
 		u = u + "?" + s.q
 	}
-	log.Infof("Start loading source piece src=%v", u)
-	r, err := s.cl.Get(u)
+	ra := fmt.Sprintf("bytes=%v-%v", s.start, s.end)
+	log.Infof("Start loading source piece src=%v range=%v", u, ra)
+	req, _ := http.NewRequest("GET", u, nil)
+	req.Header.Set("Range", ra)
+	r, err := s.cl.Do(req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to fetch torrent piece src=%v", u)
 	}
-	log.Infof("Finish loading source piece src=%v time=%v", u, time.Since(t))
+	log.Infof("Finish loading source piece src=%v range=%v time=%v", u, ra, time.Since(t))
 	return r.Body, nil
 }

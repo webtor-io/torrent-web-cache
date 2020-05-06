@@ -17,10 +17,12 @@ type S3PieceLoader struct {
 	r         io.ReadCloser
 	err       error
 	inited    bool
+	start     int64
+	end       int64
 }
 
-func NewS3PieceLoader(infoHash string, pieceHash string, st *S3Storage) *S3PieceLoader {
-	return &S3PieceLoader{st: st, infoHash: infoHash, pieceHash: pieceHash, inited: false}
+func NewS3PieceLoader(infoHash string, pieceHash string, st *S3Storage, start int64, end int64) *S3PieceLoader {
+	return &S3PieceLoader{st: st, infoHash: infoHash, pieceHash: pieceHash, inited: false, start: start, end: end}
 }
 
 func (s *S3PieceLoader) Get() (io.ReadCloser, error) {
@@ -36,7 +38,7 @@ func (s *S3PieceLoader) Get() (io.ReadCloser, error) {
 
 func (s *S3PieceLoader) get() (io.ReadCloser, error) {
 	t := time.Now()
-	p, err := s.st.GetPiece(s.infoHash, s.pieceHash)
+	p, err := s.st.GetPiece(s.infoHash, s.pieceHash, s.start, s.end)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to fetch s3 piece %v/%v", s.infoHash, s.pieceHash)
 	}

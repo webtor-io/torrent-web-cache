@@ -16,19 +16,20 @@ type PieceLoader struct {
 	h      string
 	p      string
 	q      string
+	start  int64
+	end    int64
 	mux    sync.Mutex
-	r      *ReaderWrapper
+	r      io.ReadCloser
 	err    error
 	inited bool
-	l      int64
 }
 
 func NewPieceLoader(cpp *CompletedPiecesPool, s3pp *S3PiecePool,
-	httppp *HTTPPiecePool, src string, h string, p string, q string, l int64) *PieceLoader {
-	return &PieceLoader{cpp: cpp, s3pp: s3pp, httppp: httppp, src: src, h: h, p: p, q: q, inited: false, l: l}
+	httppp *HTTPPiecePool, src string, h string, p string, q string, start int64, end int64) *PieceLoader {
+	return &PieceLoader{cpp: cpp, s3pp: s3pp, httppp: httppp, src: src, h: h, p: p, q: q, inited: false, start: start, end: end}
 }
 
-func (s *PieceLoader) Get() (*ReaderWrapper, error) {
+func (s *PieceLoader) Get() (io.ReadCloser, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if s.inited {
@@ -39,7 +40,7 @@ func (s *PieceLoader) Get() (*ReaderWrapper, error) {
 	return s.r, s.err
 }
 
-func (s *PieceLoader) get() (*ReaderWrapper, error) {
+func (s *PieceLoader) get() (io.ReadCloser, error) {
 	cp, err := s.cpp.Get(s.h)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get Completed Pieces")
@@ -52,15 +53,15 @@ func (s *PieceLoader) get() (*ReaderWrapper, error) {
 	var aa [20]byte
 	copy(aa[:20], a)
 	if cp.Has(aa) {
-		r, err = s.s3pp.Get(s.h, s.p)
+		r, err = s.s3pp.Get(s.h, s.p, s.start, s.end)
 		if r == nil || err != nil {
-			r, err = s.httppp.Get(s.src, s.h, s.p, s.q)
+			r, err = s.httppp.Get(s.src, s.h, s.p, s.q, s.start, s.end)
 		}
 	} else {
-		r, err = s.httppp.Get(s.src, s.h, s.p, s.q)
+		r, err = s.httppp.Get(s.src, s.h, s.p, s.q, s.start, s.end)
 	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get piece hash=%v piece=%v", s.h, s.p)
 	}
-	return NewReaderWrapper(r, s.l), nil
+	return NewReaderWrapper(r, s.end), nil
 }

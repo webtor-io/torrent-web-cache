@@ -4,7 +4,6 @@ import (
 	"io"
 	"net/url"
 	"strings"
-	"sync"
 
 	"github.com/anacrolix/torrent/metainfo"
 	log "github.com/sirupsen/logrus"
@@ -27,8 +26,7 @@ type Reader struct {
 	fileInfo    *metainfo.FileInfo
 	info        *metainfo.Info
 	pn          int64
-	cr          *ReaderWrapper
-	mux         sync.Mutex
+	cr          io.ReadCloser
 }
 
 func NewReader(mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string) (*Reader, error) {
@@ -97,13 +95,7 @@ func (r *Reader) getFileInfo() (*metainfo.FileInfo, int64, error) {
 	return nil, 0, errors.Errorf("File not found path=%v infohash=%v", r.path, r.hash)
 }
 
-func (r *Reader) getPiece(p *metainfo.Piece, i *metainfo.Info, fi *metainfo.FileInfo) (b []byte, start int64, length int64, err error) {
-	return
-}
-
 func (r *Reader) Read(p []byte) (n int, err error) {
-	r.mux.Lock()
-	defer r.mux.Unlock()
 	if !r.touch {
 		r.touch = true
 		defer func() {
@@ -131,13 +123,13 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 		lastPiece = true
 	}
 	start := piece.Offset()
-	// length := piece.Length()
-	var pr *ReaderWrapper
+	length := offset - start
+	var pr io.ReadCloser
 	if r.cr == nil {
-		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, piece.Length())
+		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length())
 	} else if r.cr != nil && pieceNum != r.pn {
 		r.cr.Close()
-		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, piece.Length())
+		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length())
 	} else {
 		pr = r.cr
 	}
@@ -146,7 +138,7 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	}
 	r.cr = pr
 	r.pn = pieceNum
-	pr.Seek(offset-start, io.SeekStart)
+	// pr.Seek(length, io.SeekStart)
 	n, err = pr.Read(p)
 	// lr := io.LimitReader(pr, start+length-offset)
 	// n, err = lr.Read(p)
@@ -171,8 +163,6 @@ func (r *Reader) Close() error {
 }
 
 func (r *Reader) Seek(offset int64, whence int) (int64, error) {
-	r.mux.Lock()
-	defer r.mux.Unlock()
 	fi, _, err := r.getFileInfo()
 	if err != nil {
 		log.WithError(err).Error("Failed to get FileInfo")
