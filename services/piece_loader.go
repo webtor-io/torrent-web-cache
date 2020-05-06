@@ -8,11 +8,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli"
-)
-
-const (
-	DATA_DIR = "data-dir"
 )
 
 type PieceLoader struct {
@@ -27,21 +22,11 @@ type PieceLoader struct {
 	b      []byte
 	err    error
 	inited bool
-	dd     string
 }
 
-func RegisterPieceLoaderFlags(c *cli.App) {
-	c.Flags = append(c.Flags, cli.StringFlag{
-		Name:   DATA_DIR,
-		Usage:  "Data dir",
-		Value:  "data",
-		EnvVar: "DATA_DIR",
-	})
-}
-
-func NewPieceLoader(c *cli.Context, cpp *CompletedPiecesPool, s3pp *S3PiecePool,
+func NewPieceLoader(cpp *CompletedPiecesPool, s3pp *S3PiecePool,
 	httppp *HTTPPiecePool, src string, h string, p string, q string) *PieceLoader {
-	return &PieceLoader{cpp: cpp, s3pp: s3pp, httppp: httppp, src: src, h: h, p: p, q: q, inited: false, dd: c.String(DATA_DIR)}
+	return &PieceLoader{cpp: cpp, s3pp: s3pp, httppp: httppp, src: src, h: h, p: p, q: q, inited: false}
 }
 
 func (s *PieceLoader) Clear() {

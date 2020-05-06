@@ -4,8 +4,6 @@ import (
 	"io"
 	"sync"
 	"time"
-
-	"github.com/urfave/cli"
 )
 
 const (
@@ -20,16 +18,15 @@ type PiecePool struct {
 	mux    sync.Mutex
 	timers sync.Map
 	expire time.Duration
-	c      *cli.Context
 }
 
-func NewPiecePool(c *cli.Context, cpp *CompletedPiecesPool, s3pp *S3PiecePool,
+func NewPiecePool(cpp *CompletedPiecesPool, s3pp *S3PiecePool,
 	httppp *HTTPPiecePool) *PiecePool {
-	return &PiecePool{c: c, s3pp: s3pp, httppp: httppp, cpp: cpp, expire: time.Duration(PIECE_TTL) * time.Second}
+	return &PiecePool{s3pp: s3pp, httppp: httppp, cpp: cpp, expire: time.Duration(PIECE_TTL) * time.Second}
 }
 
 func (s *PiecePool) Get(src string, h string, p string, q string) (io.ReadSeeker, error) {
-	v, _ := s.sm.LoadOrStore(p, NewPieceLoader(s.c, s.cpp, s.s3pp, s.httppp, src, h, p, q))
+	v, _ := s.sm.LoadOrStore(p, NewPieceLoader(s.cpp, s.s3pp, s.httppp, src, h, p, q))
 	t, tLoaded := s.timers.LoadOrStore(p, time.NewTimer(s.expire))
 	timer := t.(*time.Timer)
 	if !tLoaded {
