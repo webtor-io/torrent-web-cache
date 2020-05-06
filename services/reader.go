@@ -22,6 +22,7 @@ type Reader struct {
 	redirectURL string
 	touch       bool
 	offset      int64
+	fiOffset    int64
 	fileInfo    *metainfo.FileInfo
 	info        *metainfo.Info
 	pn          int64
@@ -73,13 +74,13 @@ func (r *Reader) getInfo() (*metainfo.Info, error) {
 	r.info = &info
 	return &info, nil
 }
-func (r *Reader) getFileInfo() (*metainfo.FileInfo, error) {
+func (r *Reader) getFileInfo() (*metainfo.FileInfo, int64, error) {
 	if r.fileInfo != nil {
-		return r.fileInfo, nil
+		return r.fileInfo, r.fiOffset, nil
 	}
 	info, err := r.getInfo()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	for _, f := range info.UpvertedFiles() {
 		tt := []string{}
@@ -87,10 +88,11 @@ func (r *Reader) getFileInfo() (*metainfo.FileInfo, error) {
 		tt = append(tt, f.Path...)
 		if strings.Join(tt, "/") == r.path {
 			r.fileInfo = &f
-			return &f, nil
+			r.fiOffset = f.Offset(info)
+			return &f, r.fiOffset, nil
 		}
 	}
-	return nil, errors.Errorf("File not found path=%v infohash=%v", r.path, r.hash)
+	return nil, 0, errors.Errorf("File not found path=%v infohash=%v", r.path, r.hash)
 }
 
 func (r *Reader) getPiece(p *metainfo.Piece, i *metainfo.Info, fi *metainfo.FileInfo) (b []byte, start int64, length int64, err error) {
@@ -106,7 +108,7 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 			}
 		}()
 	}
-	fi, err := r.getFileInfo()
+	fi, fiOffset, err := r.getFileInfo()
 	if err != nil {
 		return 0, errors.Wrap(err, "Failed to get FileInfo")
 	}
@@ -117,11 +119,11 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	if err != nil {
 		return 0, errors.Wrap(err, "Failed to get Info")
 	}
-	offset := r.offset + fi.Offset(i)
+	offset := r.offset + fiOffset
 	pieceNum := offset / i.PieceLength
 	piece := i.Piece(int(pieceNum))
 	lastPiece := false
-	if fi.Offset(i)+fi.Length <= piece.Offset()+piece.Length() {
+	if fiOffset+fi.Length <= piece.Offset()+piece.Length() {
 		lastPiece = true
 	}
 	start := piece.Offset()
@@ -158,7 +160,7 @@ func (r *Reader) Close() error {
 }
 
 func (r *Reader) Seek(offset int64, whence int) (int64, error) {
-	fi, err := r.getFileInfo()
+	fi, _, err := r.getFileInfo()
 	if err != nil {
 		log.WithError(err).Error("Failed to get FileInfo")
 		return 0, errors.Wrap(err, "Failed to get FileInfo")
