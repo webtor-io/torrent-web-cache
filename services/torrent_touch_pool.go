@@ -21,9 +21,10 @@ func NewTorrentTouchPool(st *S3Storage) *TorrentTouchPool {
 }
 
 func (s *TorrentTouchPool) Touch(h string) error {
-	v, loaded := s.sm.LoadOrStore(h, NewTorrentToucher(h, s.st))
+	_, loaded := s.sm.LoadOrStore(h, true)
 	if !loaded {
-		return v.(*TorrentToucher).Touch()
+		t := NewTorrentToucher(h, s.st)
+		return t.Touch()
 		go func() {
 			<-time.After(s.expire)
 			s.sm.Delete(h)
