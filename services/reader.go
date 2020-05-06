@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/anacrolix/torrent/metainfo"
 	log "github.com/sirupsen/logrus"
@@ -27,6 +28,7 @@ type Reader struct {
 	info        *metainfo.Info
 	pn          int64
 	cr          *ReaderWrapper
+	mux         sync.Mutex
 }
 
 func NewReader(mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string) (*Reader, error) {
@@ -100,6 +102,8 @@ func (r *Reader) getPiece(p *metainfo.Piece, i *metainfo.Info, fi *metainfo.File
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {
+	r.mux.Lock()
+	defer r.mux.Unlock()
 	if !r.touch {
 		r.touch = true
 		defer func() {
@@ -167,6 +171,8 @@ func (r *Reader) Close() error {
 }
 
 func (r *Reader) Seek(offset int64, whence int) (int64, error) {
+	r.mux.Lock()
+	defer r.mux.Unlock()
 	fi, _, err := r.getFileInfo()
 	if err != nil {
 		log.WithError(err).Error("Failed to get FileInfo")

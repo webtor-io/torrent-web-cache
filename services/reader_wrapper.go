@@ -8,9 +8,10 @@ import (
 )
 
 type ReaderWrapper struct {
-	offset int64
-	length int64
-	r      io.ReadCloser
+	offset    int64
+	newOffset int64
+	length    int64
+	r         io.ReadCloser
 }
 
 func NewReaderWrapper(r io.ReadCloser, l int64) *ReaderWrapper {
