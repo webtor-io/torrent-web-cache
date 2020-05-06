@@ -3,13 +3,10 @@ package services
 import (
 	"io"
 	"net/http"
-	"sync"
 )
 
 type HTTPPiecePool struct {
-	cl  *http.Client
-	sm  sync.Map
-	mux sync.Mutex
+	cl *http.Client
 }
 
 func NewHTTPPiecePool(cl *http.Client) *HTTPPiecePool {
@@ -17,9 +14,6 @@ func NewHTTPPiecePool(cl *http.Client) *HTTPPiecePool {
 }
 
 func (s *HTTPPiecePool) Get(src string, h string, p string, q string) (io.ReadCloser, error) {
-	v, loaded := s.sm.LoadOrStore(p, NewHTTPPieceLoader(s.cl, src, h, p, q))
-	if !loaded {
-		defer s.sm.Delete(p)
-	}
-	return v.(*HTTPPieceLoader).Get()
+	l := NewHTTPPieceLoader(s.cl, src, h, p, q)
+	return l.Get()
 }
