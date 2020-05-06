@@ -1,16 +1,14 @@
 package services
 
 import (
+	"bytes"
 	"encoding/hex"
-	"fmt"
 	"io"
-	"os"
+	"io/ioutil"
 	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -26,7 +24,7 @@ type PieceLoader struct {
 	p      string
 	q      string
 	mux    sync.Mutex
-	f      string
+	b      []byte
 	err    error
 	inited bool
 	dd     string
@@ -47,33 +45,30 @@ func NewPieceLoader(c *cli.Context, cpp *CompletedPiecesPool, s3pp *S3PiecePool,
 }
 
 func (s *PieceLoader) Clear() {
-	if s.f != "" {
-		os.Remove(s.f)
-		log.Infof("Piece removed path=%v", s.f)
-	}
+	s.b = nil
 }
 
-func (s *PieceLoader) Get() (*os.File, error) {
+func (s *PieceLoader) Get() (io.ReadSeeker, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if !s.inited {
-		s.f, s.err = s.get()
+		s.b, s.err = s.get()
 		s.inited = true
 	}
 	if s.err != nil {
 		return nil, s.err
 	}
-	return os.Open(s.f)
+	return bytes.NewReader(s.b), nil
 }
 
-func (s *PieceLoader) get() (string, error) {
+func (s *PieceLoader) get() ([]byte, error) {
 	cp, err := s.cpp.Get(s.h)
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to get Completed Pieces")
+		return nil, errors.Wrap(err, "Failed to get Completed Pieces")
 	}
 	a, err := hex.DecodeString(s.p)
 	if err != nil {
-		return "", errors.Wrapf(err, "Failed to decode hex hash=%v", s.p)
+		return nil, errors.Wrapf(err, "Failed to decode hex hash=%v", s.p)
 	}
 	var r io.ReadCloser
 	var aa [20]byte
@@ -87,18 +82,12 @@ func (s *PieceLoader) get() (string, error) {
 		r, err = s.httppp.Get(s.src, s.h, s.p, s.q)
 	}
 	if err != nil {
-		return "", errors.Wrapf(err, "Failed to get piece hash=%v piece=%v", s.h, s.p)
+		return nil, errors.Wrapf(err, "Failed to get piece hash=%v piece=%v", s.h, s.p)
 	}
 	defer r.Close()
-	fn := fmt.Sprintf("%v/%v", s.dd, s.p)
-	f, err := os.Create(fn)
+	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		return "", errors.Wrapf(err, "Failed to create file=%v", fn)
+		return nil, errors.Wrapf(err, "Failed to read piece hash=%v piece=%v", s.h, s.p)
 	}
-	defer f.Close()
-	_, err = io.Copy(f, r)
-	if err != nil {
-		return "", errors.Wrapf(err, "Failed to copy piece to file=%v", fn)
-	}
-	return fn, nil
+	return b, nil
 }

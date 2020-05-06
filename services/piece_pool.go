@@ -1,7 +1,7 @@
 package services
 
 import (
-	"os"
+	"io"
 	"sync"
 	"time"
 
@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	PIECE_TTL = 60
+	PIECE_TTL = 30
 )
 
 type PiecePool struct {
@@ -28,7 +28,7 @@ func NewPiecePool(c *cli.Context, cpp *CompletedPiecesPool, s3pp *S3PiecePool,
 	return &PiecePool{c: c, s3pp: s3pp, httppp: httppp, cpp: cpp, expire: time.Duration(PIECE_TTL) * time.Second}
 }
 
-func (s *PiecePool) Get(src string, h string, p string, q string) (*os.File, error) {
+func (s *PiecePool) Get(src string, h string, p string, q string) (io.ReadSeeker, error) {
 	v, _ := s.sm.LoadOrStore(p, NewPieceLoader(s.c, s.cpp, s.s3pp, s.httppp, src, h, p, q))
 	t, tLoaded := s.timers.LoadOrStore(p, time.NewTimer(s.expire))
 	timer := t.(*time.Timer)
