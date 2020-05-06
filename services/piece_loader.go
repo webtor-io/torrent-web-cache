@@ -1,10 +1,8 @@
 package services
 
 import (
-	"bytes"
 	"encoding/hex"
 	"io"
-	"io/ioutil"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -19,34 +17,29 @@ type PieceLoader struct {
 	p      string
 	q      string
 	mux    sync.Mutex
-	b      []byte
+	r      *ReaderWrapper
 	err    error
 	inited bool
+	l      int64
 }
 
 func NewPieceLoader(cpp *CompletedPiecesPool, s3pp *S3PiecePool,
-	httppp *HTTPPiecePool, src string, h string, p string, q string) *PieceLoader {
-	return &PieceLoader{cpp: cpp, s3pp: s3pp, httppp: httppp, src: src, h: h, p: p, q: q, inited: false}
+	httppp *HTTPPiecePool, src string, h string, p string, q string, l int64) *PieceLoader {
+	return &PieceLoader{cpp: cpp, s3pp: s3pp, httppp: httppp, src: src, h: h, p: p, q: q, inited: false, l: l}
 }
 
-func (s *PieceLoader) Clear() {
-	s.b = nil
-}
-
-func (s *PieceLoader) Get() (io.ReadSeeker, error) {
+func (s *PieceLoader) Get() (*ReaderWrapper, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	if !s.inited {
-		s.b, s.err = s.get()
-		s.inited = true
+	if s.inited {
+		return s.r, s.err
 	}
-	if s.err != nil {
-		return nil, s.err
-	}
-	return bytes.NewReader(s.b), nil
+	s.r, s.err = s.get()
+	s.inited = true
+	return s.r, s.err
 }
 
-func (s *PieceLoader) get() ([]byte, error) {
+func (s *PieceLoader) get() (*ReaderWrapper, error) {
 	cp, err := s.cpp.Get(s.h)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get Completed Pieces")
@@ -69,10 +62,5 @@ func (s *PieceLoader) get() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get piece hash=%v piece=%v", s.h, s.p)
 	}
-	defer r.Close()
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to read piece hash=%v piece=%v", s.h, s.p)
-	}
-	return b, nil
+	return NewReaderWrapper(r, s.l), nil
 }

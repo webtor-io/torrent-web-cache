@@ -26,7 +26,7 @@ type Reader struct {
 	fileInfo    *metainfo.FileInfo
 	info        *metainfo.Info
 	pn          int64
-	cr          io.ReadSeeker
+	cr          *ReaderWrapper
 }
 
 func NewReader(mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string) (*Reader, error) {
@@ -128,11 +128,12 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	}
 	start := piece.Offset()
 	// length := piece.Length()
-	var pr io.ReadSeeker
+	var pr *ReaderWrapper
 	if r.cr == nil {
-		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query)
+		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, piece.Length())
 	} else if r.cr != nil && pieceNum != r.pn {
-		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query)
+		r.cr.Close()
+		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, piece.Length())
 	} else {
 		pr = r.cr
 	}
@@ -150,12 +151,18 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 		log.WithError(err).Error("Failed to read Piece data")
 		return
 	} else if err == io.EOF && lastPiece {
+		if r.cr != nil {
+			r.cr.Close()
+		}
 		return n, io.EOF
 	}
 	return n, nil
 }
 
 func (r *Reader) Close() error {
+	if r.cr != nil {
+		r.cr.Close()
+	}
 	return nil
 }
 
