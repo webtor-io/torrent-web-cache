@@ -2,14 +2,12 @@ package services
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"time"
 
 	"net/http/pprof"
 
-	"code.cloudfoundry.org/bytefmt"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -98,19 +96,19 @@ func (s *Web) Serve() error {
 			http.Redirect(w, r, re.RedirectURL(), 302)
 			return
 		}
-		var rs io.ReadSeeker
-		if r.Header.Get("X-Download-Rate") != "" {
-			rate, err := bytefmt.ToBytes(r.Header.Get("X-Download-Rate"))
-			if err != nil {
-				log.WithError(err).Error("Wrong download rate")
-				http.Error(w, "Wrong download rate", http.StatusInternalServerError)
-				return
-			}
-			rs = NewThrottledReader(re, rate)
-		} else {
-			rs = re
-		}
-		http.ServeContent(w, r, re.Path(), time.Unix(0, 0), rs)
+		// var rs io.ReadSeeker
+		// if r.Header.Get("X-Download-Rate") != "" {
+		// 	rate, err := bytefmt.ToBytes(r.Header.Get("X-Download-Rate"))
+		// 	if err != nil {
+		// 		log.WithError(err).Error("Wrong download rate")
+		// 		http.Error(w, "Wrong download rate", http.StatusInternalServerError)
+		// 		return
+		// 	}
+		// 	rs = NewThrottledReader(re, rate)
+		// } else {
+		// 	rs = re
+		// }
+		http.ServeContent(w, r, re.Path(), time.Unix(0, 0), re)
 	})
 	log.Infof("Serving Web at %v", addr)
 	return http.Serve(ln, mux)
