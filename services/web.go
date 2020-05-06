@@ -21,16 +21,18 @@ type Web struct {
 	src  string
 	ln   net.Listener
 	rp   *ReaderPool
+	rate string
 }
 
 const (
-	WEB_HOST_FLAG  = "host"
-	WEB_PORT_FLAG  = "port"
-	WEB_SOURCE_URL = "source-url"
+	WEB_HOST_FLAG     = "host"
+	WEB_PORT_FLAG     = "port"
+	WEB_SOURCE_URL    = "source-url"
+	WEB_DOWNLOAD_RATE = "download-rate"
 )
 
 func NewWeb(c *cli.Context, rp *ReaderPool) *Web {
-	return &Web{src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
+	return &Web{rate: c.String(WEB_DOWNLOAD_RATE), src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
 }
 
 func RegisterWebFlags(c *cli.App) {
@@ -39,6 +41,12 @@ func RegisterWebFlags(c *cli.App) {
 		Usage:  "source url",
 		Value:  "",
 		EnvVar: "SOURCE_URL",
+	})
+	c.Flags = append(c.Flags, cli.StringFlag{
+		Name:   WEB_DOWNLOAD_RATE,
+		Usage:  "download rate",
+		Value:  "",
+		EnvVar: "DOWNLOAD_RATE",
 	})
 	c.Flags = append(c.Flags, cli.StringFlag{
 		Name:  WEB_HOST_FLAG,
@@ -52,9 +60,16 @@ func RegisterWebFlags(c *cli.App) {
 	})
 }
 
+func (s *Web) getDownloadRate(r *http.Request) string {
+	if s.rate != "" {
+		return s.rate
+	}
+	return r.Header.Get("X-Download-Rate")
+}
+
 func (s *Web) getSourceURL(r *http.Request) string {
 	if s.src != "" {
-		return s.src
+		return s.src + r.URL.Path
 	}
 	return r.Header.Get("X-Source-Url")
 }
@@ -99,8 +114,8 @@ func (s *Web) Serve() error {
 			return
 		}
 		var rs io.ReadSeeker
-		if r.Header.Get("X-Download-Rate") != "" {
-			rate, err := bytefmt.ToBytes(r.Header.Get("X-Download-Rate"))
+		if s.getDownloadRate(r) != "" {
+			rate, err := bytefmt.ToBytes(s.getDownloadRate(r))
 			if err != nil {
 				log.WithError(err).Error("Wrong download rate")
 				http.Error(w, "Wrong download rate", http.StatusInternalServerError)
