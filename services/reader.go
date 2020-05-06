@@ -20,6 +20,7 @@ type Reader struct {
 	hash        string
 	path        string
 	redirectURL string
+	touch       bool
 	offset      int64
 	fileInfo    *metainfo.FileInfo
 	info        *metainfo.Info
@@ -38,7 +39,7 @@ func NewReader(mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string
 	src := u.Scheme + "://" + u.Host
 	query := u.RawQuery
 	redirectURL := u.RequestURI()
-	return &Reader{ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0}, nil
+	return &Reader{ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0, touch: false}, nil
 }
 
 func (r *Reader) Path() string {
@@ -97,11 +98,14 @@ func (r *Reader) getPiece(p *metainfo.Piece, i *metainfo.Info, fi *metainfo.File
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {
-	defer func() {
-		if err := r.ttp.Touch(r.hash); err != nil {
-			log.WithError(err).Error("Failed to touch torrent")
-		}
-	}()
+	if !r.touch {
+		r.touch = true
+		defer func() {
+			if err := r.ttp.Touch(r.hash); err != nil {
+				log.WithError(err).Error("Failed to touch torrent")
+			}
+		}()
+	}
 	fi, err := r.getFileInfo()
 	if err != nil {
 		return 0, errors.Wrap(err, "Failed to get FileInfo")
