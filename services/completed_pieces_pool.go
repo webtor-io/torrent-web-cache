@@ -27,10 +27,7 @@ func (s *CompletedPiecesPool) Get(ctx context.Context, h string) (*CompletedPiec
 	timer := t.(*time.Timer)
 	if !tLoaded {
 		go func() {
-			select {
-			case <-timer.C:
-			case <-ctx.Done():
-			}
+			<-timer.C
 			s.sm.Delete(h)
 			s.timers.Delete(h)
 		}()
