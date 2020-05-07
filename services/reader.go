@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"io"
 	"net/url"
 	"strings"
@@ -27,9 +28,10 @@ type Reader struct {
 	info        *metainfo.Info
 	pn          int64
 	cr          io.ReadCloser
+	ctx         context.Context
 }
 
-func NewReader(mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string) (*Reader, error) {
+func NewReader(mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string, ctx context.Context) (*Reader, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to parse source url=%v", s)
@@ -40,7 +42,7 @@ func NewReader(mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string
 	src := u.Scheme + "://" + u.Host
 	query := u.RawQuery
 	redirectURL := u.RequestURI()
-	return &Reader{ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0, touch: false}, nil
+	return &Reader{ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0, touch: false, ctx: ctx}, nil
 }
 
 func (r *Reader) Path() string {
@@ -126,10 +128,10 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	length := offset - start
 	var pr io.ReadCloser
 	if r.cr == nil {
-		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length())
+		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length(), r.ctx)
 	} else if r.cr != nil && pieceNum != r.pn {
 		r.cr.Close()
-		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length())
+		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length(), r.ctx)
 	} else {
 		pr = r.cr
 	}

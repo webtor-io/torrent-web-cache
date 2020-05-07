@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"io"
 	"sync"
 )
@@ -17,7 +18,7 @@ func NewPiecePool(cpp *CompletedPiecesPool, s3pp *S3PiecePool,
 	return &PiecePool{s3pp: s3pp, httppp: httppp, cpp: cpp}
 }
 
-func (s *PiecePool) Get(src string, h string, p string, q string, start int64, end int64) (io.ReadCloser, error) {
+func (s *PiecePool) Get(src string, h string, p string, q string, start int64, end int64, ctx context.Context) (io.ReadCloser, error) {
 	// v, loaded := s.sm.LoadOrStore(p, NewPieceLoader(s.cpp, s.s3pp, s.httppp, src, h, p, q, l))
 	// if !loaded {
 	// 	go func() {
@@ -26,6 +27,6 @@ func (s *PiecePool) Get(src string, h string, p string, q string, start int64, e
 	// 	}()
 	// }
 	// return v.(*PieceLoader).Get()
-	r := NewPieceLoader(s.cpp, s.s3pp, s.httppp, src, h, p, q, start, end)
+	r := NewPieceLoader(s.cpp, s.s3pp, s.httppp, src, h, p, q, start, end, ctx)
 	return r.Get()
 }

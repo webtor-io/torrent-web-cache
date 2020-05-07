@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,10 +24,11 @@ type HTTPPieceLoader struct {
 	inited bool
 	start  int64
 	end    int64
+	ctx    context.Context
 }
 
-func NewHTTPPieceLoader(cl *http.Client, src string, h string, p string, q string, start int64, end int64) *HTTPPieceLoader {
-	return &HTTPPieceLoader{cl: cl, src: src, h: h, p: p, q: q, inited: false, start: start, end: end}
+func NewHTTPPieceLoader(cl *http.Client, src string, h string, p string, q string, start int64, end int64, ctx context.Context) *HTTPPieceLoader {
+	return &HTTPPieceLoader{cl: cl, src: src, h: h, p: p, q: q, inited: false, start: start, end: end, ctx: ctx}
 }
 
 func (s *HTTPPieceLoader) Get() (io.ReadCloser, error) {
@@ -47,13 +49,13 @@ func (s *HTTPPieceLoader) get() (io.ReadCloser, error) {
 		u = u + "?" + s.q
 	}
 	ra := fmt.Sprintf("bytes=%v-%v", s.start, s.end)
-	log.Infof("Start loading source piece src=%v range=%v", u, ra)
-	req, _ := http.NewRequest("GET", u, nil)
+	log.Debugf("Start loading source piece src=%v range=%v", u, ra)
+	req, _ := http.NewRequestWithContext(s.ctx, "GET", u, nil)
 	req.Header.Set("Range", ra)
 	r, err := s.cl.Do(req)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to fetch torrent piece src=%v", u)
 	}
-	log.Infof("Finish loading source piece src=%v range=%v time=%v", u, ra, time.Since(t))
+	log.Debugf("Finish loading source piece src=%v range=%v time=%v", u, ra, time.Since(t))
 	return r.Body, nil
 }

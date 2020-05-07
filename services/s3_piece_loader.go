@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"io"
 	"sync"
 	"time"
@@ -19,10 +20,11 @@ type S3PieceLoader struct {
 	inited    bool
 	start     int64
 	end       int64
+	ctx       context.Context
 }
 
-func NewS3PieceLoader(infoHash string, pieceHash string, st *S3Storage, start int64, end int64) *S3PieceLoader {
-	return &S3PieceLoader{st: st, infoHash: infoHash, pieceHash: pieceHash, inited: false, start: start, end: end}
+func NewS3PieceLoader(infoHash string, pieceHash string, st *S3Storage, start int64, end int64, ctx context.Context) *S3PieceLoader {
+	return &S3PieceLoader{st: st, infoHash: infoHash, pieceHash: pieceHash, inited: false, start: start, end: end, ctx: ctx}
 }
 
 func (s *S3PieceLoader) Get() (io.ReadCloser, error) {
@@ -38,13 +40,13 @@ func (s *S3PieceLoader) Get() (io.ReadCloser, error) {
 
 func (s *S3PieceLoader) get() (io.ReadCloser, error) {
 	t := time.Now()
-	p, err := s.st.GetPiece(s.infoHash, s.pieceHash, s.start, s.end)
+	p, err := s.st.GetPiece(s.infoHash, s.pieceHash, s.start, s.end, s.ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to fetch s3 piece %v/%v", s.infoHash, s.pieceHash)
 	}
 	if p == nil {
 		return nil, nil
 	}
-	log.Infof("Finish loading S3 piece infohash=%v piecehash=%v time=%v", s.infoHash, s.pieceHash, time.Since(t))
+	log.Debugf("Finish loading S3 piece infohash=%v piecehash=%v time=%v", s.infoHash, s.pieceHash, time.Since(t))
 	return p, nil
 }

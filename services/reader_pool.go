@@ -1,5 +1,9 @@
 package services
 
+import (
+	"context"
+)
+
 type ReaderPool struct {
 	pp  *PiecePool
 	mip *MetaInfoPool
@@ -10,6 +14,6 @@ func NewReaderPool(pp *PiecePool, mip *MetaInfoPool, ttp *TorrentTouchPool) *Rea
 	return &ReaderPool{mip: mip, pp: pp, ttp: ttp}
 }
 
-func (rp *ReaderPool) Get(url string) (*Reader, error) {
-	return NewReader(rp.mip, rp.pp, rp.ttp, url)
+func (rp *ReaderPool) Get(url string, ctx context.Context) (*Reader, error) {
+	return NewReader(rp.mip, rp.pp, rp.ttp, url, ctx)
 }

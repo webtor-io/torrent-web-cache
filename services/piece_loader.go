@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/hex"
 	"io"
 	"sync"
@@ -22,11 +23,12 @@ type PieceLoader struct {
 	r      io.ReadCloser
 	err    error
 	inited bool
+	ctx    context.Context
 }
 
 func NewPieceLoader(cpp *CompletedPiecesPool, s3pp *S3PiecePool,
-	httppp *HTTPPiecePool, src string, h string, p string, q string, start int64, end int64) *PieceLoader {
-	return &PieceLoader{cpp: cpp, s3pp: s3pp, httppp: httppp, src: src, h: h, p: p, q: q, inited: false, start: start, end: end}
+	httppp *HTTPPiecePool, src string, h string, p string, q string, start int64, end int64, ctx context.Context) *PieceLoader {
+	return &PieceLoader{cpp: cpp, s3pp: s3pp, httppp: httppp, src: src, h: h, p: p, q: q, inited: false, start: start, end: end, ctx: ctx}
 }
 
 func (s *PieceLoader) Get() (io.ReadCloser, error) {
@@ -53,12 +55,12 @@ func (s *PieceLoader) get() (io.ReadCloser, error) {
 	var aa [20]byte
 	copy(aa[:20], a)
 	if cp.Has(aa) {
-		r, err = s.s3pp.Get(s.h, s.p, s.start, s.end)
+		r, err = s.s3pp.Get(s.h, s.p, s.start, s.end, s.ctx)
 		if r == nil || err != nil {
-			r, err = s.httppp.Get(s.src, s.h, s.p, s.q, s.start, s.end)
+			r, err = s.httppp.Get(s.src, s.h, s.p, s.q, s.start, s.end, s.ctx)
 		}
 	} else {
-		r, err = s.httppp.Get(s.src, s.h, s.p, s.q, s.start, s.end)
+		r, err = s.httppp.Get(s.src, s.h, s.p, s.q, s.start, s.end, s.ctx)
 	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get piece hash=%v piece=%v", s.h, s.p)
