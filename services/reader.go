@@ -101,7 +101,7 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	if !r.touch {
 		r.touch = true
 		defer func() {
-			if err := r.ttp.Touch(r.ctx, r.hash); err != nil {
+			if err := r.ttp.Touch(r.hash); err != nil {
 				log.WithError(err).Error("Failed to touch torrent")
 			}
 		}()

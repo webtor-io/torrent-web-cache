@@ -3,24 +3,30 @@ package services
 import (
 	"context"
 	"sync"
+	"time"
+)
+
+const (
+	TORRENT_TOUCH_TTL = 600
 )
 
 type TorrentTouchPool struct {
-	sm sync.Map
-	st *S3Storage
+	sm     sync.Map
+	st     *S3Storage
+	expire time.Duration
 }
 
 func NewTorrentTouchPool(st *S3Storage) *TorrentTouchPool {
-	return &TorrentTouchPool{st: st}
+	return &TorrentTouchPool{expire: time.Duration(TORRENT_TOUCH_TTL) * time.Second, st: st}
 }
 
-func (s *TorrentTouchPool) Touch(ctx context.Context, h string) error {
+func (s *TorrentTouchPool) Touch(h string) error {
 	_, loaded := s.sm.LoadOrStore(h, true)
 	if !loaded {
-		t := NewTorrentToucher(ctx, h, s.st)
+		t := NewTorrentToucher(context.Background(), h, s.st)
 		return t.Touch()
 		go func() {
-			<-ctx.Done()
+			<-time.After(s.expire)
 			s.sm.Delete(h)
 		}()
 	}
