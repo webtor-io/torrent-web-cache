@@ -54,13 +54,14 @@ func (s *PieceLoader) get() (io.ReadCloser, error) {
 	var r io.ReadCloser
 	var aa [20]byte
 	copy(aa[:20], a)
+	ctx := context.Background()
 	if cp.Has(aa) {
-		r, err = s.s3pp.Get(s.ctx, s.h, s.p, s.start, s.end)
+		r, err = s.s3pp.Get(ctx, s.h, s.p, s.start, s.end)
 		if r == nil || err != nil {
-			r, err = s.httppp.Get(s.ctx, s.src, s.h, s.p, s.q, s.start, s.end)
+			r, err = s.httppp.Get(ctx, s.src, s.h, s.p, s.q, s.start, s.end)
 		}
 	} else {
-		r, err = s.httppp.Get(s.ctx, s.src, s.h, s.p, s.q, s.start, s.end)
+		r, err = s.httppp.Get(ctx, s.src, s.h, s.p, s.q, s.start, s.end)
 	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get piece hash=%v piece=%v", s.h, s.p)
