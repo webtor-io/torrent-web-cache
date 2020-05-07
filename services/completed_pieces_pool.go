@@ -21,8 +21,8 @@ func NewCompletedPiecesPool(st *S3Storage) *CompletedPiecesPool {
 	return &CompletedPiecesPool{expire: time.Duration(COMPLETED_PIECES_TTL) * time.Second, st: st}
 }
 
-func (s *CompletedPiecesPool) Get(ctx context.Context, h string) (*CompletedPieces, error) {
-	v, _ := s.sm.LoadOrStore(h, NewCompletedPiecesLoader(ctx, h, s.st))
+func (s *CompletedPiecesPool) Get(h string) (*CompletedPieces, error) {
+	v, _ := s.sm.LoadOrStore(h, NewCompletedPiecesLoader(context.Background(), h, s.st))
 	t, tLoaded := s.timers.LoadOrStore(h, time.NewTimer(s.expire))
 	timer := t.(*time.Timer)
 	if !tLoaded {

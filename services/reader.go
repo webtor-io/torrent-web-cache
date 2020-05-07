@@ -54,7 +54,7 @@ func (r *Reader) RedirectURL() string {
 }
 
 func (r *Reader) Ready() (bool, error) {
-	mi, err := r.mip.Get(r.ctx, r.hash)
+	mi, err := r.mip.Get(r.hash)
 	if err != nil {
 		return false, errors.Wrap(err, "Failed to get ready state")
 	}
@@ -65,7 +65,7 @@ func (r *Reader) getInfo() (*metainfo.Info, error) {
 	if r.info != nil {
 		return r.info, nil
 	}
-	mi, err := r.mip.Get(r.ctx, r.hash)
+	mi, err := r.mip.Get(r.hash)
 	if err != nil {
 		return nil, err
 	}

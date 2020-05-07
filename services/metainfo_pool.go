@@ -24,8 +24,8 @@ func NewMetaInfoPool(st *S3Storage) *MetaInfoPool {
 	return &MetaInfoPool{expire: time.Duration(META_INFO_TTL) * time.Second, st: st}
 }
 
-func (s *MetaInfoPool) Get(ctx context.Context, h string) (*metainfo.MetaInfo, error) {
-	v, _ := s.sm.LoadOrStore(h, NewMetaInfoLoader(ctx, h, s.st))
+func (s *MetaInfoPool) Get(h string) (*metainfo.MetaInfo, error) {
+	v, _ := s.sm.LoadOrStore(h, NewMetaInfoLoader(context.Background(), h, s.st))
 	t, tLoaded := s.timers.LoadOrStore(h, time.NewTimer(s.expire))
 	timer := t.(*time.Timer)
 	if !tLoaded {

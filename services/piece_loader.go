@@ -43,7 +43,7 @@ func (s *PieceLoader) Get() (io.ReadCloser, error) {
 }
 
 func (s *PieceLoader) get() (io.ReadCloser, error) {
-	cp, err := s.cpp.Get(s.ctx, s.h)
+	cp, err := s.cpp.Get(s.h)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get Completed Pieces")
 	}
