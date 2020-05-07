@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"sync"
 )
 
@@ -10,10 +11,11 @@ type TorrentToucher struct {
 	mux      sync.Mutex
 	err      error
 	inited   bool
+	ctx      context.Context
 }
 
-func NewTorrentToucher(infoHash string, st *S3Storage) *TorrentToucher {
-	return &TorrentToucher{st: st, infoHash: infoHash, inited: false}
+func NewTorrentToucher(ctx context.Context, infoHash string, st *S3Storage) *TorrentToucher {
+	return &TorrentToucher{st: st, infoHash: infoHash, inited: false, ctx: ctx}
 }
 
 func (s *TorrentToucher) Touch() error {
@@ -28,6 +30,6 @@ func (s *TorrentToucher) Touch() error {
 }
 
 func (s *TorrentToucher) touch() (err error) {
-	err = s.st.TouchTorrent(s.infoHash)
+	err = s.st.TouchTorrent(s.ctx, s.infoHash)
 	return
 }

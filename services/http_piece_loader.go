@@ -27,7 +27,7 @@ type HTTPPieceLoader struct {
 	ctx    context.Context
 }
 
-func NewHTTPPieceLoader(cl *http.Client, src string, h string, p string, q string, start int64, end int64, ctx context.Context) *HTTPPieceLoader {
+func NewHTTPPieceLoader(ctx context.Context, cl *http.Client, src string, h string, p string, q string, start int64, end int64) *HTTPPieceLoader {
 	return &HTTPPieceLoader{cl: cl, src: src, h: h, p: p, q: q, inited: false, start: start, end: end, ctx: ctx}
 }
 

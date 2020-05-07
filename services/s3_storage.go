@@ -41,10 +41,10 @@ func NewS3Storage(c *cli.Context, cl *S3Client) *S3Storage {
 	}
 }
 
-func (s *S3Storage) TouchTorrent(h string) (err error) {
+func (s *S3Storage) TouchTorrent(ctx context.Context, h string) (err error) {
 	key := "touch/" + h
 	log.Debugf("Touching torrent key=%v bucket=%v", key, s.bucket)
-	_, err = s.cl.Get().PutObject(&s3.PutObjectInput{
+	_, err = s.cl.Get().PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 		Body:   bytes.NewReader([]byte(fmt.Sprintf("%v", time.Now().Unix()))),
@@ -55,10 +55,10 @@ func (s *S3Storage) TouchTorrent(h string) (err error) {
 	return
 }
 
-func (s *S3Storage) GetTorrent(h string) (io.ReadCloser, error) {
+func (s *S3Storage) GetTorrent(ctx context.Context, h string) (io.ReadCloser, error) {
 	key := h + ".torrent"
 	log.Debugf("Fetching torrent key=%v bucket=%v", key, s.bucket)
-	r, err := s.cl.Get().GetObject(&s3.GetObjectInput{
+	r, err := s.cl.Get().GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	})
@@ -71,7 +71,7 @@ func (s *S3Storage) GetTorrent(h string) (io.ReadCloser, error) {
 	return r.Body, nil
 }
 
-func (s *S3Storage) GetPiece(h string, p string, start int64, end int64, ctx context.Context) (io.ReadCloser, error) {
+func (s *S3Storage) GetPiece(ctx context.Context, h string, p string, start int64, end int64) (io.ReadCloser, error) {
 	key := h + "/" + p
 	ra := fmt.Sprintf("bytes=%v-%v", start, end)
 	log.Debugf("Fetching piece key=%v bucket=%v range=%v", key, s.bucket, ra)
@@ -89,10 +89,10 @@ func (s *S3Storage) GetPiece(h string, p string, start int64, end int64, ctx con
 	return r.Body, nil
 }
 
-func (s *S3Storage) GetCompletedPieces(h string) (io.ReadCloser, error) {
+func (s *S3Storage) GetCompletedPieces(ctx context.Context, h string) (io.ReadCloser, error) {
 	key := h + "/completed_pieces"
 	log.Debugf("Fetching completed pieces key=%v bucket=%v", key, s.bucket)
-	r, err := s.cl.Get().GetObject(&s3.GetObjectInput{
+	r, err := s.cl.Get().GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	})

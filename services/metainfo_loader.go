@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"sync"
 
 	"github.com/anacrolix/torrent/metainfo"
@@ -14,10 +15,11 @@ type MetaInfoLoader struct {
 	mi       *metainfo.MetaInfo
 	err      error
 	inited   bool
+	ctx      context.Context
 }
 
-func NewMetaInfoLoader(infoHash string, st *S3Storage) *MetaInfoLoader {
-	return &MetaInfoLoader{st: st, infoHash: infoHash, inited: false}
+func NewMetaInfoLoader(ctx context.Context, infoHash string, st *S3Storage) *MetaInfoLoader {
+	return &MetaInfoLoader{ctx: ctx, st: st, infoHash: infoHash, inited: false}
 }
 
 func (s *MetaInfoLoader) Get() (*metainfo.MetaInfo, error) {
@@ -32,7 +34,7 @@ func (s *MetaInfoLoader) Get() (*metainfo.MetaInfo, error) {
 }
 
 func (s *MetaInfoLoader) get() (*metainfo.MetaInfo, error) {
-	r, err := s.st.GetTorrent(s.infoHash)
+	r, err := s.st.GetTorrent(s.ctx, s.infoHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to fetch torrent")
 	}

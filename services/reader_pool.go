@@ -14,6 +14,6 @@ func NewReaderPool(pp *PiecePool, mip *MetaInfoPool, ttp *TorrentTouchPool) *Rea
 	return &ReaderPool{mip: mip, pp: pp, ttp: ttp}
 }
 
-func (rp *ReaderPool) Get(url string, ctx context.Context) (*Reader, error) {
-	return NewReader(rp.mip, rp.pp, rp.ttp, url, ctx)
+func (rp *ReaderPool) Get(ctx context.Context, url string) (*Reader, error) {
+	return NewReader(ctx, rp.mip, rp.pp, rp.ttp, url)
 }

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -13,10 +14,11 @@ type CompletedPiecesLoader struct {
 	cp       *CompletedPieces
 	err      error
 	inited   bool
+	ctx      context.Context
 }
 
-func NewCompletedPiecesLoader(infoHash string, st *S3Storage) *CompletedPiecesLoader {
-	return &CompletedPiecesLoader{st: st, infoHash: infoHash, inited: false}
+func NewCompletedPiecesLoader(ctx context.Context, infoHash string, st *S3Storage) *CompletedPiecesLoader {
+	return &CompletedPiecesLoader{ctx: ctx, st: st, infoHash: infoHash, inited: false}
 }
 
 func (s *CompletedPiecesLoader) Get() (*CompletedPieces, error) {
@@ -31,7 +33,7 @@ func (s *CompletedPiecesLoader) Get() (*CompletedPieces, error) {
 }
 
 func (s *CompletedPiecesLoader) get() (*CompletedPieces, error) {
-	r, err := s.st.GetCompletedPieces(s.infoHash)
+	r, err := s.st.GetCompletedPieces(s.ctx, s.infoHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to fetch completed pieces")
 	}

@@ -31,7 +31,7 @@ type Reader struct {
 	ctx         context.Context
 }
 
-func NewReader(mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string, ctx context.Context) (*Reader, error) {
+func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string) (*Reader, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to parse source url=%v", s)
@@ -54,7 +54,7 @@ func (r *Reader) RedirectURL() string {
 }
 
 func (r *Reader) Ready() (bool, error) {
-	mi, err := r.mip.Get(r.hash)
+	mi, err := r.mip.Get(r.ctx, r.hash)
 	if err != nil {
 		return false, errors.Wrap(err, "Failed to get ready state")
 	}
@@ -65,7 +65,7 @@ func (r *Reader) getInfo() (*metainfo.Info, error) {
 	if r.info != nil {
 		return r.info, nil
 	}
-	mi, err := r.mip.Get(r.hash)
+	mi, err := r.mip.Get(r.ctx, r.hash)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	if !r.touch {
 		r.touch = true
 		defer func() {
-			if err := r.ttp.Touch(r.hash); err != nil {
+			if err := r.ttp.Touch(r.ctx, r.hash); err != nil {
 				log.WithError(err).Error("Failed to touch torrent")
 			}
 		}()
@@ -128,10 +128,10 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	length := offset - start
 	var pr io.ReadCloser
 	if r.cr == nil {
-		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length(), r.ctx)
+		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length())
 	} else if r.cr != nil && pieceNum != r.pn {
 		r.cr.Close()
-		pr, err = r.pp.Get(r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length(), r.ctx)
+		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length())
 	} else {
 		pr = r.cr
 	}
