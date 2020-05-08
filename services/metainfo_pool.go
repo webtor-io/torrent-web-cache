@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	META_INFO_TTL = 600
+	META_INFO_TTL = 60
 )
 
 type MetaInfoPool struct {
