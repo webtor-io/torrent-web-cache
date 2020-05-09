@@ -1,6 +1,5 @@
 # code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 ## explicit
-code.cloudfoundry.org/bytefmt
 # github.com/anacrolix/missinggo v1.2.1
 github.com/anacrolix/missinggo
 github.com/anacrolix/missinggo/expect
@@ -81,7 +80,6 @@ github.com/jmespath/go-jmespath
 github.com/joonix/log
 # github.com/juju/ratelimit v1.0.1
 ## explicit
-github.com/juju/ratelimit
 # github.com/konsorten/go-windows-terminal-sequences v1.0.2
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/pkg/errors v0.9.1
