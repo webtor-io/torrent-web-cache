@@ -13,6 +13,12 @@ func NewRWConnector(w http.ResponseWriter) *RWConnector {
 	return &RWConnector{w: w}
 }
 
+func (s *RWConnector) Flush() {
+	if w, ok := s.w.(http.Flusher); ok {
+		w.Flush()
+	}
+}
+
 func (s *RWConnector) ReadFrom(r io.Reader) (n int64, err error) {
 	if l, ok := r.(*io.LimitedReader); ok {
 		if rr, ok := l.R.(*Reader); ok {

@@ -13,6 +13,8 @@ import (
 
 func main() {
 
+	log.SetFormatter(joonix.NewFormatter())
+	// log.SetLevel(log.DebugLevel)
 	file, _ := os.Create("cpu.prof")
 	rp.StartCPUProfile(file)
 	log.Info("Start profilling")
@@ -21,8 +23,6 @@ func main() {
 		rp.StopCPUProfile()
 		log.Info("Stop profilling")
 	}()
-	log.SetFormatter(joonix.NewFormatter())
-	// log.SetLevel(log.DebugLevel)
 	app := cli.NewApp()
 	app.Name = "torrent-web-cache"
 	app.Usage = "Serves cached torrent data"
