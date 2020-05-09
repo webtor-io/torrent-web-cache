@@ -94,7 +94,7 @@ func (s *Web) Serve() error {
 			w.WriteHeader(500)
 			return
 		}
-		re, err := s.rp.Get(r.Context(), url)
+		re, err := s.rp.Get(r.Context(), url, s.getDownloadRate(r))
 		defer re.Close()
 		if err != nil {
 			log.WithError(err).Errorf("Failed get reader for url=%v", url)
@@ -111,18 +111,6 @@ func (s *Web) Serve() error {
 			http.Redirect(w, r, re.RedirectURL(), 302)
 			return
 		}
-		// var rs io.ReadSeeker
-		// if s.getDownloadRate(r) != "" {
-		// 	rate, err := bytefmt.ToBytes(s.getDownloadRate(r))
-		// 	if err != nil {
-		// 		log.WithError(err).Error("Wrong download rate")
-		// 		http.Error(w, "Wrong download rate", http.StatusInternalServerError)
-		// 		return
-		// 	}
-		// 	rs = NewThrottledReader(re, rate)
-		// } else {
-		// 	rs = re
-		// }
 		http.ServeContent(NewRWConnector(w), r, re.Path(), time.Unix(0, 0), re)
 	})
 	log.Infof("Serving Web at %v", addr)

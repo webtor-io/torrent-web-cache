@@ -6,7 +6,9 @@ import (
 	"net/url"
 	"strings"
 
+	"code.cloudfoundry.org/bytefmt"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/juju/ratelimit"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pkg/errors"
@@ -30,9 +32,10 @@ type Reader struct {
 	cr          io.ReadCloser
 	ctx         context.Context
 	N           int64
+	rate        string
 }
 
-func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string) (*Reader, error) {
+func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string, rate string) (*Reader, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to parse source url=%v", s)
@@ -43,7 +46,7 @@ func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PiecePool, ttp *Torre
 	src := u.Scheme + "://" + u.Host
 	query := u.RawQuery
 	redirectURL := u.RequestURI()
-	return &Reader{ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0, touch: false, ctx: ctx, N: -1}, nil
+	return &Reader{ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0, touch: false, ctx: ctx, N: -1, rate: rate}, nil
 }
 
 func (r *Reader) Path() string {
@@ -98,7 +101,7 @@ func (r *Reader) getFileInfo() (*metainfo.FileInfo, int64, error) {
 	return nil, 0, errors.Errorf("File not found path=%v infohash=%v", r.path, r.hash)
 }
 
-func (r *Reader) getReader(limit int64) (io.ReadCloser, error) {
+func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	if !r.touch {
 		r.touch = true
 		defer func() {
@@ -141,12 +144,24 @@ func (r *Reader) getReader(limit int64) (io.ReadCloser, error) {
 	}
 	r.cr = pr
 	r.pn = pieceNum
-	return r.cr, nil
+
+	var rrr io.Reader
+	if r.rate != "" {
+		rate, err := bytefmt.ToBytes(r.rate)
+		if err != nil {
+			return nil, err
+		}
+		bucket := ratelimit.NewBucketWithRate(float64(rate), int64(rate))
+		rrr = ratelimit.Reader(r.cr, bucket)
+	} else {
+		rrr = r.cr
+	}
+	return rrr, nil
 }
 
 func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
 	n = 0
-	var pr io.ReadCloser
+	var pr io.Reader
 	var nn int64
 
 	fi, _, err := r.getFileInfo()
