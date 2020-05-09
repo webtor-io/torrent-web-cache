@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -8,9 +9,13 @@ import (
 
 	"net/http/pprof"
 
+	uu "net/url"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+
+	rp "runtime/pprof"
 )
 
 type Web struct {
@@ -86,6 +91,11 @@ func (s *Web) Serve() error {
 	mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
 	mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
 	mux.Handle("/debug/pprof/allocs", pprof.Handler("allocs"))
+	pctx := context.Background()
+
+	mux.HandleFunc("/debug/pprof/profile10", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "cpu.prof")
+	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		url := s.getSourceURL(r)
@@ -111,7 +121,11 @@ func (s *Web) Serve() error {
 			http.Redirect(w, r, re.RedirectURL(), 302)
 			return
 		}
-		http.ServeContent(NewRWConnector(w), r, re.Path(), time.Unix(0, 0), re)
+		u, _ := uu.Parse(url)
+		labels := rp.Labels("path", u.Path)
+		rp.Do(pctx, labels, func(ctx context.Context) {
+			http.ServeContent(NewRWConnector(w), r, re.Path(), time.Unix(0, 0), re)
+		})
 	})
 	log.Infof("Serving Web at %v", addr)
 	return http.Serve(ln, mux)

@@ -2,6 +2,9 @@ package main
 
 import (
 	"os"
+	"time"
+
+	rp "runtime/pprof"
 
 	joonix "github.com/joonix/log"
 	log "github.com/sirupsen/logrus"
@@ -9,6 +12,15 @@ import (
 )
 
 func main() {
+
+	file, _ := os.Create("cpu.prof")
+	rp.StartCPUProfile(file)
+	log.Info("Start profilling")
+	go func() {
+		<-time.After(10 * time.Minute)
+		rp.StopCPUProfile()
+		log.Info("Stop profilling")
+	}()
 	log.SetFormatter(joonix.NewFormatter())
 	// log.SetLevel(log.DebugLevel)
 	app := cli.NewApp()
