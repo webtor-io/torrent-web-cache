@@ -86,6 +86,9 @@ func (s *S3Storage) GetPiece(ctx context.Context, h string, p string, start int6
 		}
 		return nil, errors.Wrap(err, "Failed to fetch piece")
 	}
+	// buf := make([]byte, end-start+1000)
+	// n, err := io.ReadFull(r.Body, buf)
+	// log.Info(n)
 	return r.Body, nil
 }
 

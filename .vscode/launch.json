@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}",
             "env": {},
-            "envFile": "${env:HOME}/.env",
+            "envFile": "/Volumes/Home/vintikzzzz/.env",
             "args": []
         }
     ]

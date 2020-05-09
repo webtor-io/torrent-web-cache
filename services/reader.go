@@ -29,6 +29,7 @@ type Reader struct {
 	pn          int64
 	cr          io.ReadCloser
 	ctx         context.Context
+	N           int64
 }
 
 func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string) (*Reader, error) {
@@ -42,7 +43,7 @@ func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PiecePool, ttp *Torre
 	src := u.Scheme + "://" + u.Host
 	query := u.RawQuery
 	redirectURL := u.RequestURI()
-	return &Reader{ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0, touch: false, ctx: ctx}, nil
+	return &Reader{ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0, touch: false, ctx: ctx, N: -1}, nil
 }
 
 func (r *Reader) Path() string {
@@ -97,7 +98,7 @@ func (r *Reader) getFileInfo() (*metainfo.FileInfo, int64, error) {
 	return nil, 0, errors.Errorf("File not found path=%v infohash=%v", r.path, r.hash)
 }
 
-func (r *Reader) Read(p []byte) (n int, err error) {
+func (r *Reader) getReader(limit int64) (io.ReadCloser, error) {
 	if !r.touch {
 		r.touch = true
 		defer func() {
@@ -108,53 +109,80 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	}
 	fi, fiOffset, err := r.getFileInfo()
 	if err != nil {
-		return 0, errors.Wrap(err, "Failed to get FileInfo")
+		return nil, errors.Wrap(err, "Failed to get FileInfo")
 	}
 	if fi.Length < r.offset {
-		return 0, io.EOF
+		return nil, io.EOF
 	}
 	i, err := r.getInfo()
 	if err != nil {
-		return 0, errors.Wrap(err, "Failed to get Info")
+		return nil, errors.Wrap(err, "Failed to get Info")
 	}
 	offset := r.offset + fiOffset
 	pieceNum := offset / i.PieceLength
 	piece := i.Piece(int(pieceNum))
-	lastPiece := false
-	if fiOffset+fi.Length <= piece.Offset()+piece.Length() {
-		lastPiece = true
-	}
 	start := piece.Offset()
-	length := offset - start
+	pieceStart := offset - start
+	pieceEnd := piece.Length() - 1
+	if start+piece.Length() > fiOffset+r.offset+limit {
+		pieceEnd = fiOffset + +r.offset + limit - start - 1
+	}
 	var pr io.ReadCloser
 	if r.cr == nil {
-		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length())
+		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, pieceStart, pieceEnd)
 	} else if r.cr != nil && pieceNum != r.pn {
 		r.cr.Close()
-		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, length, piece.Length())
+		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, pieceStart, pieceEnd)
 	} else {
 		pr = r.cr
 	}
 	if err != nil {
-		return 0, errors.Wrap(err, "Failed to get Piece data")
+		return nil, errors.Wrap(err, "Failed to get Piece data")
 	}
 	r.cr = pr
 	r.pn = pieceNum
-	// pr.Seek(length, io.SeekStart)
-	n, err = pr.Read(p)
-	// lr := io.LimitReader(pr, start+length-offset)
-	// n, err = lr.Read(p)
-	r.offset = r.offset + int64(n)
-	if err != nil && err != io.EOF {
-		log.WithError(err).Error("Failed to read Piece data")
-		return
-	} else if err == io.EOF && lastPiece {
-		if r.cr != nil {
-			r.cr.Close()
-		}
-		return n, io.EOF
+	return r.cr, nil
+}
+
+func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
+	n = 0
+	var pr io.ReadCloser
+	var nn int64
+
+	fi, _, err := r.getFileInfo()
+
+	if err != nil {
+		return 0, errors.Wrap(err, "Failed to get FileInfo")
 	}
-	return n, nil
+	limit := fi.Length - r.offset
+	if r.N != -1 {
+		limit = r.N
+	}
+
+	for {
+		pr, err = r.getReader(limit)
+		if err != nil {
+			return
+		}
+		nn, err = io.Copy(w, pr)
+		n = n + nn
+
+		r.offset = r.offset + nn
+		limit = limit - nn
+		if err != nil {
+			log.WithError(err).Error("Failed to read Piece data")
+			return
+		} else if limit == 0 {
+			if r.cr != nil {
+				r.cr.Close()
+			}
+			return n, io.EOF
+		}
+	}
+}
+
+func (r *Reader) Read(p []byte) (n int, err error) {
+	return 0, nil
 }
 
 func (r *Reader) Close() error {
