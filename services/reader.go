@@ -176,6 +176,10 @@ func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
 	}
 
 	for {
+		if r.ctx.Err() != nil {
+			log.WithError(r.ctx.Err()).Error("Got context error")
+			return n, r.ctx.Err()
+		}
 		pr, err = r.getReader(limit)
 		if err != nil {
 			return
@@ -190,7 +194,7 @@ func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
 		if err != nil {
 			log.WithError(err).Error("Failed to read Piece data")
 			return
-		} else if limit == 0 {
+		} else if limit <= 0 || nn == 0 {
 			if r.cr != nil {
 				r.cr.Close()
 			}
