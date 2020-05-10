@@ -40,3 +40,10 @@ func (s *RWConnector) WriteHeader(statusCode int) {
 func (s *RWConnector) Header() http.Header {
 	return s.w.Header()
 }
+
+func (s *RWConnector) CloseNotify() <-chan bool {
+	if w, ok := s.w.(http.CloseNotifier); ok {
+		return w.CloseNotify()
+	}
+	panic("Not implemented")
+}

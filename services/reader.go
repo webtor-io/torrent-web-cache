@@ -198,7 +198,7 @@ func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {
-	return 0, nil
+	panic("Not implemented")
 }
 
 func (r *Reader) Close() error {
