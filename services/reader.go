@@ -9,6 +9,8 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	log "github.com/sirupsen/logrus"
 
+	"code.cloudfoundry.org/bytefmt"
+	"github.com/juju/ratelimit"
 	"github.com/pkg/errors"
 )
 
@@ -144,18 +146,18 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	r.cr = pr
 	r.pn = pieceNum
 
-	// var rrr io.Reader
-	// if r.rate != "" {
-	// 	rate, err := bytefmt.ToBytes(r.rate)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	bucket := ratelimit.NewBucketWithRate(float64(rate), int64(rate))
-	// 	rrr = ratelimit.Reader(r.cr, bucket)
-	// } else {
-	// 	rrr = r.cr
-	// }
-	return r.cr, nil
+	var rrr io.Reader
+	if r.rate != "" {
+		rate, err := bytefmt.ToBytes(r.rate)
+		if err != nil {
+			return nil, err
+		}
+		bucket := ratelimit.NewBucketWithRate(float64(rate), int64(rate))
+		rrr = ratelimit.Reader(r.cr, bucket)
+	} else {
+		rrr = r.cr
+	}
+	return rrr, nil
 }
 
 func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
