@@ -172,15 +172,15 @@ func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
 	if r.N != -1 {
 		limit = r.N
 	}
-	buf := r.lb.Get()
-	defer r.lb.Put(buf)
 
 	for {
 		pr, err = r.getReader(limit)
 		if err != nil {
 			return
 		}
+		buf := r.lb.Get()
 		nn, err = io.CopyBuffer(w, pr, buf)
+		r.lb.Put(buf)
 		n = n + nn
 
 		r.offset = r.offset + nn
