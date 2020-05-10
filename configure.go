@@ -21,6 +21,9 @@ func configure(app *cli.App) {
 }
 
 func run(c *cli.Context) error {
+	// Setting ballast
+	_ = make([]byte, 1<<30)
+
 	// Setting S3 Session
 	s3cl := s.NewS3Client(c)
 
