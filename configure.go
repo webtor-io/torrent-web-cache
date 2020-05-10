@@ -55,8 +55,10 @@ func run(c *cli.Context) error {
 	// Setting Piece Pool
 	pp := s.NewPiecePool(cpp, s3pp, httppp)
 
+	lb := s.NewLeakyBuffer(1000, 32*1024)
+
 	// Setting Reader Pool
-	rp := s.NewReaderPool(pp, mip, ttp)
+	rp := s.NewReaderPool(pp, mip, ttp, lb)
 
 	// Setting ProbeService
 	probe := cs.NewProbe(c)

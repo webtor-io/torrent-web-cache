@@ -31,9 +31,10 @@ type Reader struct {
 	ctx         context.Context
 	N           int64
 	rate        string
+	lb          *LeakyBuffer
 }
 
-func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, s string, rate string) (*Reader, error) {
+func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, lb *LeakyBuffer, s string, rate string) (*Reader, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to parse source url=%v", s)
@@ -44,7 +45,7 @@ func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PiecePool, ttp *Torre
 	src := u.Scheme + "://" + u.Host
 	query := u.RawQuery
 	redirectURL := u.RequestURI()
-	return &Reader{ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0, touch: false, ctx: ctx, N: -1, rate: rate}, nil
+	return &Reader{lb: lb, ttp: ttp, pp: pp, mip: mip, src: src, query: query, hash: hash, path: path, redirectURL: redirectURL, offset: 0, touch: false, ctx: ctx, N: -1, rate: rate}, nil
 }
 
 func (r *Reader) Path() string {
@@ -171,7 +172,8 @@ func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
 	if r.N != -1 {
 		limit = r.N
 	}
-	buf := make([]byte, 1024*256)
+	buf := r.lb.Get()
+	defer r.lb.Put(buf)
 
 	for {
 		pr, err = r.getReader(limit)

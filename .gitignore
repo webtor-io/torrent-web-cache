@@ -19,3 +19,5 @@ tmp
 torrent-web-cache
 
 __debug_bin
+
+cpu.prof
