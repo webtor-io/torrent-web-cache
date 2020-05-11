@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"net/http/pprof"
@@ -24,6 +25,7 @@ type Web struct {
 	src  string
 	ln   net.Listener
 	rp   *ReaderPool
+	cp   *CompletedPiecesPool
 	rate string
 }
 
@@ -34,8 +36,8 @@ const (
 	WEB_DOWNLOAD_RATE = "download-rate"
 )
 
-func NewWeb(c *cli.Context, rp *ReaderPool) *Web {
-	return &Web{rate: c.String(WEB_DOWNLOAD_RATE), src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
+func NewWeb(c *cli.Context, rp *ReaderPool, cp *CompletedPiecesPool) *Web {
+	return &Web{cp: cp, rate: c.String(WEB_DOWNLOAD_RATE), src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
 }
 
 func RegisterWebFlags(c *cli.App) {
@@ -93,8 +95,32 @@ func (s *Web) Serve() error {
 	mux.Handle("/debug/pprof/allocs", pprof.Handler("allocs"))
 	pctx := context.Background()
 
-	mux.HandleFunc("/debug/pprof/profile10", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "cpu.prof")
+	// mux.HandleFunc("/debug/pprof/profile10", func(w http.ResponseWriter, r *http.Request) {
+	// 	http.ServeFile(w, r, "cpu.prof")
+	// })
+
+	mux.HandleFunc("/completed_pieces", func(w http.ResponseWriter, r *http.Request) {
+		url := s.getSourceURL(r)
+		u, err := uu.Parse(url)
+		if err != nil {
+			log.WithError(err).Errorf("Failed get parse source url=%v", url)
+			w.WriteHeader(500)
+			return
+		}
+		parts := strings.SplitN(u.Path, "/", 3)
+		hash := parts[1]
+		cp, err := s.cp.Get(hash)
+		if err != nil {
+			log.WithError(err).Errorf("Failed get completed pieces hash=%v", hash)
+			w.WriteHeader(500)
+			return
+		}
+		_, err = w.Write(cp.ToBytes())
+		if err != nil {
+			log.WithError(err).Errorf("Failed to write completed pieces hash=%v", hash)
+			w.WriteHeader(500)
+			return
+		}
 	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

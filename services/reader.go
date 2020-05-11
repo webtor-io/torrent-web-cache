@@ -102,7 +102,7 @@ func (r *Reader) getFileInfo() (*metainfo.FileInfo, int64, error) {
 	return nil, 0, errors.Errorf("File not found path=%v infohash=%v", r.path, r.hash)
 }
 
-func (r *Reader) getReader(limit int64) (io.Reader, error) {
+func (r *Reader) getReader(limit int64, rate uint64) (io.Reader, error) {
 	if !r.touch {
 		r.touch = true
 		defer func() {
@@ -147,8 +147,7 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	r.pn = pieceNum
 
 	var rrr io.Reader
-	if r.rate != "" {
-		rate, err := bytefmt.ToBytes(r.rate)
+	if rate != 0 {
 		if err != nil {
 			return nil, err
 		}
@@ -175,12 +174,20 @@ func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {
 		limit = r.N
 	}
 
+	var rate uint64 = 0
+	if r.rate != "" {
+		rate, err = bytefmt.ToBytes(r.rate)
+		if err != nil {
+			return 0, errors.Wrap(err, "Failed to parse rate")
+		}
+	}
+
 	for {
 		if r.ctx.Err() != nil {
 			log.WithError(r.ctx.Err()).Error("Got context error")
 			return n, r.ctx.Err()
 		}
-		pr, err = r.getReader(limit)
+		pr, err = r.getReader(limit, rate)
 		if err != nil {
 			return
 		}

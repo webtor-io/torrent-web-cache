@@ -1,8 +1,11 @@
 package services
 
 import (
+	"encoding/hex"
 	"io"
 	"io/ioutil"
+
+	"github.com/pkg/errors"
 )
 
 func split(buf []byte, lim int) [][]byte {
@@ -23,6 +26,17 @@ type CompletedPieces map[[20]byte]bool
 func (cp CompletedPieces) Has(h [20]byte) bool {
 	_, ok := map[[20]byte]bool(cp)[h]
 	return ok
+}
+
+func (cp CompletedPieces) HasHex(h string) (bool, error) {
+	a, err := hex.DecodeString(h)
+	if err != nil {
+		return false, errors.Wrapf(err, "Failed to decode hex hash=%v", h)
+	}
+	var aa [20]byte
+	copy(aa[:20], a)
+	_, ok := map[[20]byte]bool(cp)[aa]
+	return ok, nil
 }
 
 func (cp CompletedPieces) Add(h [20]byte) {

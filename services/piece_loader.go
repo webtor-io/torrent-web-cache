@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/hex"
 	"io"
 	"sync"
 
@@ -47,14 +46,10 @@ func (s *PieceLoader) get() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get Completed Pieces")
 	}
-	a, err := hex.DecodeString(s.p)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to decode hex hash=%v", s.p)
-	}
 	var r io.ReadCloser
-	var aa [20]byte
-	copy(aa[:20], a)
-	if cp.Has(aa) {
+	if ok, err := cp.HasHex(s.p); err != nil {
+		return nil, errors.Wrap(err, "Failed to get piece state")
+	} else if ok {
 		r, err = s.s3pp.Get(s.ctx, s.h, s.p, s.start, s.end)
 		if r == nil || err != nil {
 			r, err = s.httppp.Get(s.ctx, s.src, s.h, s.p, s.q, s.start, s.end)
