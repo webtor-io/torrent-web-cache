@@ -79,6 +79,13 @@ func (s *Web) getSourceURL(r *http.Request) string {
 	return r.Header.Get("X-Source-Url")
 }
 
+func (s *Web) addCORSHeaders(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Origin") != "" {
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+	}
+}
+
 func (s *Web) Serve() error {
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	ln, err := net.Listen("tcp", addr)
@@ -100,6 +107,7 @@ func (s *Web) Serve() error {
 	// })
 
 	mux.HandleFunc("/completed_pieces", func(w http.ResponseWriter, r *http.Request) {
+		s.addCORSHeaders(w, r)
 		url := s.getSourceURL(r)
 		u, err := uu.Parse(url)
 		if err != nil {
@@ -124,6 +132,7 @@ func (s *Web) Serve() error {
 	})
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		s.addCORSHeaders(w, r)
 		url := s.getSourceURL(r)
 		if url == "" {
 			log.Error("No source url provided")
