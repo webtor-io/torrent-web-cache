@@ -47,9 +47,11 @@ func (s *PieceLoader) get() (io.ReadCloser, error) {
 		return nil, errors.Wrap(err, "Failed to get Completed Pieces")
 	}
 	var r io.ReadCloser
-	if ok, err := cp.HasHex(s.p); err != nil {
-		return nil, errors.Wrap(err, "Failed to get piece state")
-	} else if ok {
+	ok, err := cp.HasHex(s.p)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to check piece")
+	}
+	if ok {
 		r, err = s.s3pp.Get(s.ctx, s.h, s.p, s.start, s.end)
 		if r == nil || err != nil {
 			r, err = s.httppp.Get(s.ctx, s.src, s.h, s.p, s.q, s.start, s.end)
