@@ -72,11 +72,17 @@ func (s *Web) getDownloadRate(r *http.Request) string {
 	return r.Header.Get("X-Download-Rate")
 }
 
-func (s *Web) getSourceURL(r *http.Request) string {
+func (s *Web) getSourceURL(r *http.Request) (string, error) {
+	su := r.Header.Get("X-Source-Url")
 	if s.src != "" {
-		return s.src + r.URL.Path
+		su = s.src
 	}
-	return r.Header.Get("X-Source-Url")
+	u, err := uu.Parse(su)
+	if err != nil {
+		return "", errors.Wrapf(err, "Failed to parse source url=%v", su)
+	}
+	u.Path = u.Path + strings.TrimPrefix(r.URL.Path, "/")
+	return u.String(), nil
 }
 
 func (s *Web) addCORSHeaders(w http.ResponseWriter, r *http.Request) {
@@ -108,10 +114,15 @@ func (s *Web) Serve() error {
 
 	mux.HandleFunc("/completed_pieces", func(w http.ResponseWriter, r *http.Request) {
 		s.addCORSHeaders(w, r)
-		url := s.getSourceURL(r)
+		url, err := s.getSourceURL(r)
+		if err != nil {
+			log.WithError(err).Errorf("Failed to get source url=%v", url)
+			w.WriteHeader(500)
+			return
+		}
 		u, err := uu.Parse(url)
 		if err != nil {
-			log.WithError(err).Errorf("Failed get parse source url=%v", url)
+			log.WithError(err).Errorf("Failed to parse source url=%v", url)
 			w.WriteHeader(500)
 			return
 		}
@@ -133,9 +144,10 @@ func (s *Web) Serve() error {
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.addCORSHeaders(w, r)
-		url := s.getSourceURL(r)
-		if url == "" {
-			log.Error("No source url provided")
+		url, err := s.getSourceURL(r)
+		log.Info(url)
+		if err != nil {
+			log.WithError(err).Errorf("Failed to get source url=%v", url)
 			w.WriteHeader(500)
 			return
 		}
