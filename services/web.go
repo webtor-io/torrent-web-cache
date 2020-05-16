@@ -86,10 +86,11 @@ func (s *Web) getSourceURL(r *http.Request) (string, error) {
 }
 
 func (s *Web) addCORSHeaders(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Origin") != "" {
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-	}
+	// if r.Header.Get("Origin") != "" {
+	// w.Header().Set("Access-Control-Allow-Credentials", "true")
+	// w.Header().Set("Access-Control-Allow-Headers", "range")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	// }
 }
 
 func (s *Web) Serve() error {
