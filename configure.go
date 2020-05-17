@@ -69,7 +69,7 @@ func run(c *cli.Context) error {
 	defer probe.Close()
 
 	// Setting WebService
-	web := s.NewWeb(c, rp, cpp)
+	web := s.NewWeb(c, rp, cpp, pp)
 	defer web.Close()
 
 	// Setting ServeService

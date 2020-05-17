@@ -125,18 +125,20 @@ func (r *Reader) getReader(limit int64, rate uint64) (io.Reader, error) {
 	offset := r.offset + fiOffset
 	pieceNum := offset / i.PieceLength
 	piece := i.Piece(int(pieceNum))
+	pieceLength := piece.Length()
 	start := piece.Offset()
 	pieceStart := offset - start
 	pieceEnd := piece.Length() - 1
 	if start+piece.Length() > fiOffset+r.offset+limit {
 		pieceEnd = fiOffset + +r.offset + limit - start - 1
 	}
+	full := pieceEnd-pieceStart == pieceLength-1
 	var pr io.ReadCloser
 	if r.cr == nil {
-		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, pieceStart, pieceEnd)
+		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, pieceStart, pieceEnd, full)
 	} else if r.cr != nil && pieceNum != r.pn {
 		r.cr.Close()
-		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, pieceStart, pieceEnd)
+		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, pieceStart, pieceEnd, full)
 	} else {
 		pr = r.cr
 	}

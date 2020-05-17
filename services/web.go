@@ -3,10 +3,14 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"code.cloudfoundry.org/bytefmt"
+	"github.com/juju/ratelimit"
 
 	"net/http/pprof"
 
@@ -26,6 +30,7 @@ type Web struct {
 	ln   net.Listener
 	rp   *ReaderPool
 	cp   *CompletedPiecesPool
+	pp   *PiecePool
 	rate string
 }
 
@@ -36,8 +41,8 @@ const (
 	WEB_DOWNLOAD_RATE = "download-rate"
 )
 
-func NewWeb(c *cli.Context, rp *ReaderPool, cp *CompletedPiecesPool) *Web {
-	return &Web{cp: cp, rate: c.String(WEB_DOWNLOAD_RATE), src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
+func NewWeb(c *cli.Context, rp *ReaderPool, cp *CompletedPiecesPool, pp *PiecePool) *Web {
+	return &Web{pp: pp, cp: cp, rate: c.String(WEB_DOWNLOAD_RATE), src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
 }
 
 func RegisterWebFlags(c *cli.App) {
@@ -143,10 +148,45 @@ func (s *Web) Serve() error {
 		}
 	})
 
+	mux.HandleFunc("/piece/", func(w http.ResponseWriter, r *http.Request) {
+		s.addCORSHeaders(w, r)
+		url, err := s.getSourceURL(r)
+		if err != nil {
+			log.WithError(err).Errorf("Failed to get source url=%v", url)
+			w.WriteHeader(500)
+			return
+		}
+
+		u, _ := uu.Parse(url)
+		parts := strings.SplitN(u.Path, "/", 3)
+		hash := parts[1]
+		src := u.Scheme + "://" + u.Host
+		query := u.RawQuery
+		p := strings.TrimPrefix(r.URL.Path, "/piece/")
+		pr, err := s.pp.Get(r.Context(), src, hash, p, query, 0, 0, true)
+		if err != nil {
+			log.WithError(err).Errorf("Failed to get piece")
+			w.WriteHeader(500)
+			return
+		}
+
+		var rrr io.Reader
+		if s.getDownloadRate(r) != "" {
+			rate, err := bytefmt.ToBytes(s.getDownloadRate(r))
+			if err != nil {
+				log.WithError(err).Errorf("Failed to parse rate")
+				w.WriteHeader(500)
+			}
+			bucket := ratelimit.NewBucketWithRate(float64(rate), int64(rate))
+			rrr = ratelimit.Reader(pr, bucket)
+		} else {
+			rrr = pr
+		}
+		io.Copy(w, rrr)
+	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.addCORSHeaders(w, r)
 		url, err := s.getSourceURL(r)
-		log.Info(url)
 		if err != nil {
 			log.WithError(err).Errorf("Failed to get source url=%v", url)
 			w.WriteHeader(500)

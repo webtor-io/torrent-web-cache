@@ -71,15 +71,20 @@ func (s *S3Storage) GetTorrent(ctx context.Context, h string) (io.ReadCloser, er
 	return r.Body, nil
 }
 
-func (s *S3Storage) GetPiece(ctx context.Context, h string, p string, start int64, end int64) (io.ReadCloser, error) {
+func (s *S3Storage) GetPiece(ctx context.Context, h string, p string, start int64, end int64, full bool) (io.ReadCloser, error) {
 	key := h + "/" + p
-	ra := fmt.Sprintf("bytes=%v-%v", start, end)
-	log.Debugf("Fetching piece key=%v bucket=%v range=%v", key, s.bucket, ra)
-	r, err := s.cl.Get().GetObjectWithContext(ctx, &s3.GetObjectInput{
+
+	in := &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
-		Range:  aws.String(ra),
-	})
+	}
+	ra := "full"
+	if !full {
+		ra = fmt.Sprintf("bytes=%v-%v", start, end)
+		in.Range = aws.String(fmt.Sprintf("bytes=%v-%v", start, end))
+	}
+	log.Debugf("Fetching piece key=%v bucket=%v range=%v", key, s.bucket, ra)
+	r, err := s.cl.Get().GetObjectWithContext(ctx, in)
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == s3.ErrCodeNoSuchKey {
 			return nil, nil

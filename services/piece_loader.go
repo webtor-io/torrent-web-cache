@@ -18,6 +18,7 @@ type PieceLoader struct {
 	q      string
 	start  int64
 	end    int64
+	full   bool
 	mux    sync.Mutex
 	r      io.ReadCloser
 	err    error
@@ -26,8 +27,8 @@ type PieceLoader struct {
 }
 
 func NewPieceLoader(ctx context.Context, cpp *CompletedPiecesPool, s3pp *S3PiecePool,
-	httppp *HTTPPiecePool, src string, h string, p string, q string, start int64, end int64) *PieceLoader {
-	return &PieceLoader{cpp: cpp, s3pp: s3pp, httppp: httppp, src: src, h: h, p: p, q: q, inited: false, start: start, end: end, ctx: ctx}
+	httppp *HTTPPiecePool, src string, h string, p string, q string, start int64, end int64, full bool) *PieceLoader {
+	return &PieceLoader{cpp: cpp, s3pp: s3pp, httppp: httppp, src: src, h: h, p: p, q: q, inited: false, start: start, end: end, ctx: ctx, full: full}
 }
 
 func (s *PieceLoader) Get() (io.ReadCloser, error) {
@@ -52,12 +53,12 @@ func (s *PieceLoader) get() (io.ReadCloser, error) {
 		return nil, errors.Wrap(err, "Failed to check piece")
 	}
 	if ok {
-		r, err = s.s3pp.Get(s.ctx, s.h, s.p, s.start, s.end)
+		r, err = s.s3pp.Get(s.ctx, s.h, s.p, s.start, s.end, s.full)
 		if r == nil || err != nil {
-			r, err = s.httppp.Get(s.ctx, s.src, s.h, s.p, s.q, s.start, s.end)
+			r, err = s.httppp.Get(s.ctx, s.src, s.h, s.p, s.q, s.start, s.end, s.full)
 		}
 	} else {
-		r, err = s.httppp.Get(s.ctx, s.src, s.h, s.p, s.q, s.start, s.end)
+		r, err = s.httppp.Get(s.ctx, s.src, s.h, s.p, s.q, s.start, s.end, s.full)
 	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get piece hash=%v piece=%v", s.h, s.p)
