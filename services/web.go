@@ -1,16 +1,11 @@
 package services
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"strings"
 	"time"
-
-	"code.cloudfoundry.org/bytefmt"
-	"github.com/juju/ratelimit"
 
 	"net/http/pprof"
 
@@ -19,8 +14,6 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
-
-	rp "runtime/pprof"
 )
 
 type Web struct {
@@ -30,7 +23,6 @@ type Web struct {
 	ln   net.Listener
 	rp   *ReaderPool
 	cp   *CompletedPiecesPool
-	pp   *PiecePool
 	rate string
 }
 
@@ -41,8 +33,8 @@ const (
 	WEB_DOWNLOAD_RATE = "download-rate"
 )
 
-func NewWeb(c *cli.Context, rp *ReaderPool, cp *CompletedPiecesPool, pp *PiecePool) *Web {
-	return &Web{pp: pp, cp: cp, rate: c.String(WEB_DOWNLOAD_RATE), src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
+func NewWeb(c *cli.Context, rp *ReaderPool, cp *CompletedPiecesPool) *Web {
+	return &Web{cp: cp, rate: c.String(WEB_DOWNLOAD_RATE), src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
 }
 
 func RegisterWebFlags(c *cli.App) {
@@ -91,11 +83,24 @@ func (s *Web) getSourceURL(r *http.Request) (string, error) {
 }
 
 func (s *Web) addCORSHeaders(w http.ResponseWriter, r *http.Request) {
-	// if r.Header.Get("Origin") != "" {
-	// w.Header().Set("Access-Control-Allow-Credentials", "true")
-	// w.Header().Set("Access-Control-Allow-Headers", "range")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	// }
+}
+
+func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string) {
+	s.addCORSHeaders(w, r)
+
+	url, err := s.getSourceURL(r)
+	if err != nil {
+		log.WithError(err).Errorf("Failed to get source url=%v", url)
+		w.WriteHeader(500)
+		return
+	}
+	tr, u, p, err := s.rp.Get(r.Context(), url, s.getDownloadRate(r), piece)
+	if u != "" {
+		http.Redirect(w, r, u, 302)
+		return
+	}
+	http.ServeContent(NewRWConnector(w), r, p, time.Unix(0, 0), tr)
 }
 
 func (s *Web) Serve() error {
@@ -112,11 +117,6 @@ func (s *Web) Serve() error {
 	mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
 	mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
 	mux.Handle("/debug/pprof/allocs", pprof.Handler("allocs"))
-	pctx := context.Background()
-
-	// mux.HandleFunc("/debug/pprof/profile10", func(w http.ResponseWriter, r *http.Request) {
-	// 	http.ServeFile(w, r, "cpu.prof")
-	// })
 
 	mux.HandleFunc("/completed_pieces", func(w http.ResponseWriter, r *http.Request) {
 		s.addCORSHeaders(w, r)
@@ -149,71 +149,12 @@ func (s *Web) Serve() error {
 	})
 
 	mux.HandleFunc("/piece/", func(w http.ResponseWriter, r *http.Request) {
-		s.addCORSHeaders(w, r)
-		url, err := s.getSourceURL(r)
-		if err != nil {
-			log.WithError(err).Errorf("Failed to get source url=%v", url)
-			w.WriteHeader(500)
-			return
-		}
-
-		u, _ := uu.Parse(url)
-		parts := strings.SplitN(u.Path, "/", 3)
-		hash := parts[1]
-		src := u.Scheme + "://" + u.Host
-		query := u.RawQuery
 		p := strings.TrimPrefix(r.URL.Path, "/piece/")
-		pr, err := s.pp.Get(r.Context(), src, hash, p, query, 0, 0, true)
-		if err != nil {
-			log.WithError(err).Errorf("Failed to get piece")
-			w.WriteHeader(500)
-			return
-		}
-
-		var rrr io.Reader
-		if s.getDownloadRate(r) != "" {
-			rate, err := bytefmt.ToBytes(s.getDownloadRate(r))
-			if err != nil {
-				log.WithError(err).Errorf("Failed to parse rate")
-				w.WriteHeader(500)
-			}
-			bucket := ratelimit.NewBucketWithRate(float64(rate), int64(rate))
-			rrr = ratelimit.Reader(pr, bucket)
-		} else {
-			rrr = pr
-		}
-		io.Copy(w, rrr)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		s.serveContent(w, r, p)
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		s.addCORSHeaders(w, r)
-		url, err := s.getSourceURL(r)
-		if err != nil {
-			log.WithError(err).Errorf("Failed to get source url=%v", url)
-			w.WriteHeader(500)
-			return
-		}
-		re, err := s.rp.Get(r.Context(), url, s.getDownloadRate(r))
-		defer re.Close()
-		if err != nil {
-			log.WithError(err).Errorf("Failed get reader for url=%v", url)
-			w.WriteHeader(500)
-			return
-		}
-		rr, err := re.Ready()
-		if err != nil {
-			log.WithError(err).Errorf("Failed get reader ready state for url=%v", url)
-			w.WriteHeader(500)
-			return
-		}
-		if !rr {
-			http.Redirect(w, r, re.RedirectURL(), 302)
-			return
-		}
-		u, _ := uu.Parse(url)
-		labels := rp.Labels("path", u.Path)
-		rp.Do(pctx, labels, func(ctx context.Context) {
-			http.ServeContent(NewRWConnector(w), r, re.Path(), time.Unix(0, 0), re)
-		})
+		s.serveContent(w, r, "")
 	})
 	log.Infof("Serving Web at %v", addr)
 	return http.Serve(ln, mux)
