@@ -41,6 +41,9 @@ func (rp *ReaderPool) Get(ctx context.Context, s string, rate string, piece stri
 	if err != nil {
 		return nil, "", "", errors.Wrap(err, "Failed to get MetaInfo")
 	}
+	if mi == nil {
+		return nil, u.RequestURI(), "", nil
+	}
 	info, err := mi.UnmarshalInfo()
 	if err != nil {
 		return nil, "", "", err
