@@ -11,6 +11,7 @@ import (
 func main() {
 
 	log.SetFormatter(joonix.NewFormatter())
+	log.SetLevel(log.DebugLevel)
 	app := cli.NewApp()
 	app.Name = "torrent-web-cache"
 	app.Usage = "Serves cached torrent data"
