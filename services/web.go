@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -94,6 +95,25 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 		log.WithError(err).Errorf("Failed to get source url=%v", url)
 		w.WriteHeader(500)
 		return
+	}
+
+	download := true
+	keys, ok := r.URL.Query()["download"]
+	if !ok || len(keys[0]) < 1 {
+		download = false
+	}
+	if download {
+		downloadFile := piece
+		if piece == "" {
+			u, err := uu.Parse(url)
+			if err != nil {
+				log.WithError(err).Errorf("Failed to parse source url=%v", url)
+				w.WriteHeader(500)
+			}
+			downloadFile = filepath.Base(u.Path)
+		}
+		w.Header().Add("Content-Type", "application/octet-stream")
+		w.Header().Add("Content-Disposition", "attachment; filename=\""+downloadFile+"\"")
 	}
 	tr, u, p, err := s.rp.Get(r.Context(), url, s.getDownloadRate(r), piece)
 	if u != "" {
