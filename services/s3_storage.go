@@ -56,7 +56,7 @@ func (s *S3Storage) TouchTorrent(ctx context.Context, h string) (err error) {
 }
 
 func (s *S3Storage) GetTorrent(ctx context.Context, h string) (io.ReadCloser, error) {
-	key := h + ".torrent"
+	key := "torrents/" + h
 	log.Debugf("Fetching torrent key=%v bucket=%v", key, s.bucket)
 	r, err := s.cl.Get().GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -73,9 +73,10 @@ func (s *S3Storage) GetTorrent(ctx context.Context, h string) (io.ReadCloser, er
 
 func (s *S3Storage) GetPiece(ctx context.Context, h string, p string, start int64, end int64, full bool) (io.ReadCloser, error) {
 	key := h + "/" + p
+	bucket := s.bucket + "-" + h[0:2]
 
 	in := &s3.GetObjectInput{
-		Bucket: aws.String(s.bucket),
+		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	}
 	ra := "full"
@@ -83,7 +84,7 @@ func (s *S3Storage) GetPiece(ctx context.Context, h string, p string, start int6
 		ra = fmt.Sprintf("bytes=%v-%v", start, end)
 		in.Range = aws.String(fmt.Sprintf("bytes=%v-%v", start, end))
 	}
-	log.Debugf("Fetching piece key=%v bucket=%v range=%v", key, s.bucket, ra)
+	log.Debugf("Fetching piece key=%v bucket=%v range=%v", key, bucket, ra)
 	r, err := s.cl.Get().GetObjectWithContext(ctx, in)
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == s3.ErrCodeNoSuchKey {
@@ -98,7 +99,7 @@ func (s *S3Storage) GetPiece(ctx context.Context, h string, p string, start int6
 }
 
 func (s *S3Storage) GetCompletedPieces(ctx context.Context, h string) (io.ReadCloser, error) {
-	key := h + "/completed_pieces"
+	key := "completed_pieces/" + h
 	log.Debugf("Fetching completed pieces key=%v bucket=%v", key, s.bucket)
 	r, err := s.cl.Get().GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
