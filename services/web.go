@@ -102,6 +102,7 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 	if !ok || len(keys[0]) < 1 {
 		download = false
 	}
+	rate := s.getDownloadRate(r)
 	if download {
 		downloadFile := piece
 		if piece == "" {
@@ -114,8 +115,10 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 		}
 		w.Header().Add("Content-Type", "application/octet-stream")
 		w.Header().Add("Content-Disposition", "attachment; filename=\""+downloadFile+"\"")
+	} else {
+		rate = ""
 	}
-	tr, u, p, err := s.rp.Get(r.Context(), url, s.getDownloadRate(r), piece)
+	tr, u, p, err := s.rp.Get(r.Context(), url, rate, piece)
 	if u != "" {
 		http.Redirect(w, r, u, 302)
 		return
