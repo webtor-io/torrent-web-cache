@@ -16,6 +16,7 @@ type S3Client struct {
 	secretAccessKey string
 	endpoint        string
 	region          string
+	noSSL           bool
 	s3              *s3.S3
 	mux             sync.Mutex
 	err             error
@@ -27,6 +28,7 @@ const (
 	AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
 	AWS_ENDPOINT          = "aws-endpoint"
 	AWS_REGION            = "aws-region"
+	AWS_NO_SSL            = "aws-no-ssl"
 )
 
 func RegisterS3ClientFlags(c *cli.App) {
@@ -54,6 +56,10 @@ func RegisterS3ClientFlags(c *cli.App) {
 		Value:  "",
 		EnvVar: "AWS_REGION",
 	})
+	c.Flags = append(c.Flags, cli.BoolFlag{
+		Name:   AWS_NO_SSL,
+		EnvVar: "AWS_NO_SSL",
+	})
 }
 
 func NewS3Client(c *cli.Context) *S3Client {
@@ -62,6 +68,7 @@ func NewS3Client(c *cli.Context) *S3Client {
 		secretAccessKey: c.String(AWS_SECRET_ACCESS_KEY),
 		endpoint:        c.String(AWS_ENDPOINT),
 		region:          c.String(AWS_REGION),
+		noSSL:           c.Bool(AWS_NO_SSL),
 		inited:          false,
 	}
 }
@@ -85,6 +92,7 @@ func (s *S3Client) get() *s3.S3 {
 		Region:      aws.String(s.region),
 		// DisableSSL:       aws.Bool(true),
 		S3ForcePathStyle: aws.Bool(true),
+		DisableSSL:       aws.Bool(s.noSSL),
 	}
 	ss := session.New(c)
 	s.s3 = s3.New(ss)
