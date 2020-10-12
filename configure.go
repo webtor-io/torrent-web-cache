@@ -24,8 +24,21 @@ func run(c *cli.Context) error {
 	// Setting ballast
 	_ = make([]byte, 100<<20)
 
+	// Setting HTTP Client
+	myTransport := &http.Transport{
+		MaxIdleConns:        500,
+		MaxIdleConnsPerHost: 50,
+		Dial: (&net.Dialer{
+			Timeout: 5 * time.Minute,
+		}).Dial,
+	}
+	cl := &http.Client{
+		Timeout:   5 * time.Minute,
+		Transport: myTransport,
+	}
+
 	// Setting S3 Session
-	s3cl := s.NewS3Client(c)
+	s3cl := s.NewS3Client(c, cl)
 
 	// Setting S3 Storage
 	s3st := s.NewS3Storage(c, s3cl)
@@ -42,16 +55,6 @@ func run(c *cli.Context) error {
 	// Setting Torrent Touch Pool
 	ttp := s.NewTorrentTouchPool(s3st)
 
-	// Setting HTTP Client
-	myTransport := &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout: 5 * time.Minute,
-		}).Dial,
-	}
-	cl := &http.Client{
-		Timeout:   5 * time.Minute,
-		Transport: myTransport,
-	}
 	// Setting HTTP Piece Pool
 	httppp := s.NewHTTPPiecePool(cl)
 

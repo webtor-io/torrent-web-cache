@@ -86,7 +86,7 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	pieceStart := offset - start
 	pieceEnd := piece.Length() - 1
 	if start+piece.Length() > r.offset+r.readOffset+limit {
-		pieceEnd = r.offset + +r.readOffset + limit - start - 1
+		pieceEnd = r.offset + r.readOffset + limit - start - 1
 	}
 	full := pieceEnd-pieceStart == pieceLength-1
 	var pr io.ReadCloser
