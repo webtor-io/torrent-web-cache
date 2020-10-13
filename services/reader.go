@@ -85,12 +85,12 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	start := piece.Offset()
 	pieceStart := offset - start
 	pieceEnd := piece.Length() - 1
-	preloadSize := int64(20)
 	if start+piece.Length() > r.offset+r.readOffset+limit {
 		pieceEnd = r.offset + r.readOffset + limit - start - 1
 	}
 	full := pieceEnd-pieceStart == pieceLength-1
 	// Preload
+	preloadSize := int64(20)
 	if r.pn != pieceNum {
 		for ii := pieceNum + 1; ii < pieceNum+preloadSize+1 && ii < int64(i.NumPieces()); ii++ {
 			r.pp.Preload(r.ctx, r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)

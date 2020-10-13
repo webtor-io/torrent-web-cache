@@ -40,23 +40,30 @@ func (s *PiecePreloader) Preload() {
 		return
 	}
 	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.b, s.err = s.preload()
-	s.inited = true
+	go func() {
+		defer s.mux.Unlock()
+		s.b, s.err = s.preload()
+		s.inited = true
+	}()
 }
 
-func (s *PiecePreloader) Get(start int64, end int64) (io.ReadCloser, error) {
+func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+	log.Infof("Using preloaded piece hash=%v piece=%v", s.h, s.p)
 	if s.err != nil {
 		return nil, s.err
 	}
-	buf := bytes.NewBuffer(s.b)
-	_, err := io.CopyN(ioutil.Discard, buf, start)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to skip %v bytes from piece=%v", start, s.p)
+	buf := bytes.NewReader(s.b)
+	if full {
+		rcr := ioutil.NopCloser(buf)
+		return rcr, nil
 	}
-	lr := io.LimitReader(buf, end-start)
+	_, err := buf.Seek(start, io.SeekStart)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to seek to %v in piece=%v", start, s.p)
+	}
+	lr := io.LimitReader(buf, end-start+1)
 	rcr := ioutil.NopCloser(lr)
 	return rcr, nil
 }
@@ -78,8 +85,7 @@ func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p stri
 	v, ok := s.sm.Load(p)
 	if ok {
 		s.sm.Delete(p)
-		log.Infof("Using preloaded piece hash=%v piece=%v", h, p)
-		return v.(*PiecePreloader).Get(start, end)
+		return v.(*PiecePreloader).Get(start, end, full)
 	}
 	return s.pp.Get(ctx, src, h, p, q, start, end, full)
 }
@@ -91,7 +97,6 @@ func (s *PreloadPiecePool) Preload(ctx context.Context, src string, h string, p 
 			<-time.After(60 * time.Second)
 			s.sm.Delete(p)
 		}()
-	} else {
-		go v.(*PiecePreloader).Preload()
+		v.(*PiecePreloader).Preload()
 	}
 }
