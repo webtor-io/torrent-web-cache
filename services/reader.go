@@ -90,6 +90,12 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 		pieceEnd = r.offset + r.readOffset + limit - start - 1
 	}
 	full := pieceEnd-pieceStart == pieceLength-1
+	// Preload
+	if r.pn != pieceNum {
+		for ii := pieceNum + 1; ii < pieceNum+preloadSize+1 && ii < int64(i.NumPieces()); ii++ {
+			r.pp.Preload(r.ctx, r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
+		}
+	}
 	var pr io.ReadCloser
 	if r.cr == nil {
 		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, pieceStart, pieceEnd, full)
@@ -101,10 +107,6 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get Piece data")
-	}
-	// Preload
-	for ii := pieceNum + 1; ii < pieceNum+preloadSize+1 && ii < int64(i.NumPieces()); ii++ {
-		r.pp.Preload(r.ctx, r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
 	}
 	r.cr = pr
 	r.pn = pieceNum

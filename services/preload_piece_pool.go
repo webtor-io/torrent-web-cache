@@ -36,11 +36,11 @@ func NewPiecePreloader(ctx context.Context, pp *PiecePool, src string, h string,
 }
 
 func (s *PiecePreloader) Preload() {
-	s.mux.Lock()
-	defer s.mux.Unlock()
 	if s.inited {
 		return
 	}
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	s.b, s.err = s.preload()
 	s.inited = true
 }
