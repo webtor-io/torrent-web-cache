@@ -85,7 +85,7 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	start := piece.Offset()
 	pieceStart := offset - start
 	pieceEnd := piece.Length() - 1
-	preloadSize := int64(5)
+	preloadSize := int64(20)
 	if start+piece.Length() > r.offset+r.readOffset+limit {
 		pieceEnd = r.offset + r.readOffset + limit - start - 1
 	}
