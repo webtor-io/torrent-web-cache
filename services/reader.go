@@ -12,7 +12,7 @@ import (
 )
 
 type Reader struct {
-	pp          *PiecePool
+	pp          *PreloadPiecePool
 	ttp         *TorrentTouchPool
 	mip         *MetaInfoPool
 	src         string
@@ -33,7 +33,7 @@ type Reader struct {
 	lb          *LeakyBuffer
 }
 
-func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PiecePool, ttp *TorrentTouchPool, lb *LeakyBuffer, src string, hash string, query string, rate uint64, offset int64, length int64) *Reader {
+func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PreloadPiecePool, ttp *TorrentTouchPool, lb *LeakyBuffer, src string, hash string, query string, rate uint64, offset int64, length int64) *Reader {
 	return &Reader{lb: lb, ttp: ttp, pp: pp, mip: mip, src: src, query: query,
 		hash: hash, readOffset: 0, touch: false, ctx: ctx, N: -1, rate: rate, offset: offset, length: length}
 }
@@ -85,6 +85,7 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	start := piece.Offset()
 	pieceStart := offset - start
 	pieceEnd := piece.Length() - 1
+	preloadSize := int64(5)
 	if start+piece.Length() > r.offset+r.readOffset+limit {
 		pieceEnd = r.offset + r.readOffset + limit - start - 1
 	}
@@ -100,6 +101,10 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get Piece data")
+	}
+	// Preload
+	for ii := pieceNum + 1; ii < pieceNum+preloadSize+1 && ii < int64(i.NumPieces()); ii++ {
+		r.pp.Preload(r.ctx, r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
 	}
 	r.cr = pr
 	r.pn = pieceNum

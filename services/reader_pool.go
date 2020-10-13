@@ -84,7 +84,8 @@ func (rp *ReaderPool) Get(ctx context.Context, s string, rate string, piece stri
 			return nil, "", "", errors.Errorf("File not found path=%v infohash=%v", path, hash)
 		}
 	}
-	tr := NewReader(ctx, rp.mip, rp.pp, rp.ttp, rp.lb, src, hash, query, r, offset, length)
+	ppp := NewPreloadPiecePool(rp.pp)
+	tr := NewReader(ctx, rp.mip, ppp, rp.ttp, rp.lb, src, hash, query, r, offset, length)
 	if ok, err := tr.Ready(); err != nil {
 		return nil, "", "", errors.Wrap(err, "Failed to get reader ready state")
 	} else if !ok {
