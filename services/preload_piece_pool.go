@@ -119,7 +119,6 @@ func NewPreloadPiecePool(pp *PiecePool) *PreloadPiecePool {
 func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p string, q string, start int64, end int64, full bool) (io.ReadCloser, error) {
 	v, ok := s.sm.Load(p)
 	if ok {
-		s.sm.Delete(p)
 		return v.(*PiecePreloader).Get(start, end, full)
 	}
 	return s.pp.Get(ctx, src, h, p, q, start, end, full)
@@ -129,7 +128,10 @@ func (s *PreloadPiecePool) Preload(ctx context.Context, src string, h string, p 
 	v, loaded := s.sm.LoadOrStore(p, NewPiecePreloader(ctx, s.pp, src, h, p, q))
 	if !loaded {
 		go func() {
-			<-v.(*PiecePreloader).clCh
+			select {
+			case <-v.(*PiecePreloader).clCh:
+			case <-time.After(30 * time.Second):
+			}
 			s.sm.Delete(p)
 		}()
 		v.(*PiecePreloader).Preload()
