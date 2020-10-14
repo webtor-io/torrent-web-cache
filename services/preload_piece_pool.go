@@ -95,7 +95,7 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 	go func() {
 		select {
 		case <-s.r.clCh:
-		case <-time.After(60 * time.Second):
+		case <-time.After(15 * time.Second):
 		}
 		close(s.clCh)
 		log.Infof("Preloader closed hash=%v piece=%v", s.h, s.p)
