@@ -12,6 +12,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type PreloadReader struct {
+	r    io.Reader
+	clCh chan bool
+}
+
 type PreloadPiecePool struct {
 	pp *PiecePool
 	sm sync.Map
@@ -26,13 +31,35 @@ type PiecePreloader struct {
 	err    error
 	inited bool
 	b      []byte
+	r      *PreloadReader
 	ctx    context.Context
 	mux    sync.Mutex
+	clCh   chan bool
+}
+
+func NewPreloadReader(r io.Reader) *PreloadReader {
+	return &PreloadReader{r: r, clCh: make(chan bool)}
+}
+
+func (s *PreloadReader) Read(p []byte) (n int, err error) {
+	return s.r.Read(p)
+}
+
+func (r *PreloadReader) WriteTo(w io.Writer) (n int64, err error) {
+	if l, ok := r.r.(io.WriterTo); ok {
+		return l.WriteTo(w)
+	}
+	return io.Copy(w, r.r)
+}
+
+func (s *PreloadReader) Close() error {
+	close(s.clCh)
+	return nil
 }
 
 func NewPiecePreloader(ctx context.Context, pp *PiecePool, src string, h string, p string, q string) *PiecePreloader {
 	return &PiecePreloader{ctx: ctx, pp: pp, src: src,
-		h: h, p: p, q: q}
+		h: h, p: p, q: q, clCh: make(chan bool)}
 }
 
 func (s *PiecePreloader) Preload() {
@@ -56,16 +83,24 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 	}
 	buf := bytes.NewReader(s.b)
 	if full {
-		rcr := ioutil.NopCloser(buf)
-		return rcr, nil
+		s.r = NewPreloadReader(buf)
+	} else {
+		_, err := buf.Seek(start, io.SeekStart)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to seek to %v in piece=%v", start, s.p)
+		}
+		lr := io.LimitReader(buf, end-start+1)
+		s.r = NewPreloadReader(lr)
 	}
-	_, err := buf.Seek(start, io.SeekStart)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to seek to %v in piece=%v", start, s.p)
-	}
-	lr := io.LimitReader(buf, end-start+1)
-	rcr := ioutil.NopCloser(lr)
-	return rcr, nil
+	go func() {
+		select {
+		case <-s.r.clCh:
+		case <-time.After(60 * time.Second):
+		}
+		close(s.clCh)
+		log.Infof("Preloader closed hash=%v piece=%v", s.h, s.p)
+	}()
+	return s.r, nil
 }
 
 func (s *PiecePreloader) preload() ([]byte, error) {
@@ -94,7 +129,7 @@ func (s *PreloadPiecePool) Preload(ctx context.Context, src string, h string, p 
 	v, loaded := s.sm.LoadOrStore(p, NewPiecePreloader(ctx, s.pp, src, h, p, q))
 	if !loaded {
 		go func() {
-			<-time.After(60 * time.Second)
+			<-v.(*PiecePreloader).clCh
 			s.sm.Delete(p)
 		}()
 		v.(*PiecePreloader).Preload()
