@@ -118,11 +118,14 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 	} else {
 		rate = ""
 	}
-	tr, _, p, err := s.rp.Get(r.Context(), url, rate, piece)
-	// if u != "" && r.Header.Get("X-FORWARDED-FOR") != "" {
-	// 	http.Redirect(w, r, u, 302)
-	// 	return
-	// }
+	tr, u, p, err := s.rp.Get(r.Context(), url, rate, piece)
+	if u != "" {
+		w.Header().Add("X-Accel-Redirect", u)
+		if r.Header.Get("X-Forwarded-For") == "" {
+			http.Redirect(w, r, u, 302)
+		}
+		return
+	}
 	http.ServeContent(NewRWConnector(w), r, p, time.Unix(0, 0), tr)
 }
 
