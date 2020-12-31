@@ -115,8 +115,6 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 		}
 		w.Header().Add("Content-Type", "application/octet-stream")
 		w.Header().Add("Content-Disposition", "attachment; filename=\""+downloadFile+"\"")
-	} else {
-		rate = ""
 	}
 	tr, u, p, err := s.rp.Get(r.Context(), url, rate, piece)
 	if u != "" {
