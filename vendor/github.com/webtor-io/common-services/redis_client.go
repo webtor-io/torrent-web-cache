@@ -11,9 +11,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// RedisClient makes Redis Client from cli and environment variables
+// Automatically hanldles Sentinel configuration
 type RedisClient struct {
 	host               string
 	port               int
+	pass               string
 	sentinelPort       int
 	sentinelMasterName string
 	value              redis.UniversalClient
@@ -22,18 +25,21 @@ type RedisClient struct {
 }
 
 const (
-	REDIS_HOST_FLAG            = "redis-host"
-	REDIS_PORT_FLAG            = "redis-port"
-	REDIS_SENTINEL_PORT_FLAG   = "redis-sentinel-port"
-	REDIS_SENTINEL_MASTER_NAME = "redis-sentinel-master-name"
+	redisHostFlag           = "redis-host"
+	redisPortFlag           = "redis-port"
+	redisPassFlag           = "redis-pass"
+	redisSentinelPortFlag   = "redis-sentinel-port"
+	redisSentinelMasterName = "redis-sentinel-master-name"
 )
 
+// NewRedisClient initializes RedisClient
 func NewRedisClient(c *cli.Context) *RedisClient {
-	return &RedisClient{host: c.String(REDIS_HOST_FLAG), port: c.Int(REDIS_PORT_FLAG),
-		sentinelPort: c.Int(REDIS_SENTINEL_PORT_FLAG), sentinelMasterName: c.String(REDIS_SENTINEL_MASTER_NAME),
+	return &RedisClient{host: c.String(redisHostFlag), port: c.Int(redisPortFlag), pass: c.String(redisPassFlag),
+		sentinelPort: c.Int(redisSentinelPortFlag), sentinelMasterName: c.String(redisSentinelMasterName),
 		inited: false}
 }
 
+// Close closes RedisClient
 func (s *RedisClient) Close() {
 	if s.value != nil {
 		s.value.Close()
@@ -60,6 +66,7 @@ func (s *RedisClient) get() redis.UniversalClient {
 	})
 }
 
+// Get gets redis.UniversalCleint
 func (s *RedisClient) Get() redis.UniversalClient {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -71,26 +78,33 @@ func (s *RedisClient) Get() redis.UniversalClient {
 	return s.value
 }
 
+// RegisterRedisClientFlags registers cli flags for RedisClient
 func RegisterRedisClientFlags(c *cli.App) {
 	c.Flags = append(c.Flags, cli.StringFlag{
-		Name:   REDIS_HOST_FLAG,
+		Name:   redisHostFlag,
 		Usage:  "redis host",
 		Value:  "localhost",
 		EnvVar: "REDIS_MASTER_SERVICE_HOST, REDIS_SERVICE_HOST",
 	})
 	c.Flags = append(c.Flags, cli.IntFlag{
-		Name:   REDIS_PORT_FLAG,
+		Name:   redisPortFlag,
 		Usage:  "redis port",
 		Value:  6379,
 		EnvVar: "REDIS_MASTER_SERVICE_PORT, REDIS_SERVICE_PORT",
 	})
+	c.Flags = append(c.Flags, cli.StringFlag{
+		Name:   redisPassFlag,
+		Usage:  "redis pass",
+		Value:  "",
+		EnvVar: "REDIS_PASS",
+	})
 	c.Flags = append(c.Flags, cli.IntFlag{
-		Name:   REDIS_SENTINEL_PORT_FLAG,
+		Name:   redisSentinelPortFlag,
 		Usage:  "redis sentinel port",
 		EnvVar: "REDIS_SERVICE_PORT_REDIS_SENTINEL",
 	})
 	c.Flags = append(c.Flags, cli.StringFlag{
-		Name:   REDIS_SENTINEL_MASTER_NAME,
+		Name:   redisSentinelMasterName,
 		Usage:  "redis sentinel master name",
 		Value:  "mymaster",
 		EnvVar: "REDIS_SERVICE_SENTINEL_MASTER_NAME",

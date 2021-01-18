@@ -14,12 +14,14 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+
+	cs "github.com/webtor-io/common-services"
 )
 
 type S3Storage struct {
 	bucket       string
 	bucketSpread bool
-	cl           *S3Client
+	cl           *cs.S3Client
 }
 
 const (
@@ -40,7 +42,7 @@ func RegisterS3StorageFlags(c *cli.App) {
 	})
 }
 
-func NewS3Storage(c *cli.Context, cl *S3Client) *S3Storage {
+func NewS3Storage(c *cli.Context, cl *cs.S3Client) *S3Storage {
 	return &S3Storage{
 		bucket:       c.String(AWS_BUCKET),
 		bucketSpread: c.Bool(AWS_BUCKET_SPREAD),

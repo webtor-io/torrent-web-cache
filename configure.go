@@ -14,7 +14,7 @@ import (
 func configure(app *cli.App) {
 	app.Flags = []cli.Flag{}
 	cs.RegisterProbeFlags(app)
-	s.RegisterS3ClientFlags(app)
+	cs.RegisterS3ClientFlags(app)
 	s.RegisterS3StorageFlags(app)
 	s.RegisterWebFlags(app)
 	app.Action = run
@@ -38,7 +38,7 @@ func run(c *cli.Context) error {
 	}
 
 	// Setting S3 Session
-	s3cl := s.NewS3Client(c, cl)
+	s3cl := cs.NewS3Client(c, cl)
 
 	// Setting S3 Storage
 	s3st := s.NewS3Storage(c, s3cl)
