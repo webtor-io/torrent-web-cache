@@ -20,7 +20,7 @@ ENV GOOS=linux
 # build the binary with debug information removed
 RUN go build -mod=vendor -ldflags '-w -s' -a -installsuffix cgo -o server
 
-FROM golang:latest
+FROM alpine:latest
 
 # copy our static linked library
 COPY --from=build /app/server .

@@ -24,11 +24,11 @@ func (s *TorrentTouchPool) Touch(h string) error {
 	_, loaded := s.sm.LoadOrStore(h, true)
 	if !loaded {
 		t := NewTorrentToucher(context.Background(), h, s.st)
-		return t.Touch()
 		go func() {
 			<-time.After(s.expire)
 			s.sm.Delete(h)
 		}()
+		return t.Touch()
 	}
 	return nil
 }
