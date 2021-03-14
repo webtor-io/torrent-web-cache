@@ -90,10 +90,10 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	}
 	full := pieceEnd-pieceStart == pieceLength-1
 	// Preload
-	preloadSize := int64(3)
+	preloadSize := int64(5)
 	if r.pn != pieceNum {
 		for ii := pieceNum + 1; ii < pieceNum+preloadSize+1 && ii < int64(i.NumPieces()); ii++ {
-			r.pp.Preload(r.ctx, r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
+			r.pp.Preload(context.Background(), r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
 		}
 	}
 	var pr io.ReadCloser
