@@ -64,9 +64,11 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	if !r.touch {
 		r.touch = true
 		defer func() {
-			if err := r.ttp.Touch(r.hash); err != nil {
-				log.WithError(err).Error("Failed to touch torrent")
-			}
+			go func() {
+				if err := r.ttp.Touch(r.hash); err != nil {
+					log.WithError(err).Error("Failed to touch torrent")
+				}
+			}()
 		}()
 	}
 	if r.length < r.readOffset {
@@ -88,12 +90,12 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	}
 	full := pieceEnd-pieceStart == pieceLength-1
 	// Preload
-	// preloadSize := int64(2)
-	// if r.pn != pieceNum {
-	// 	for ii := pieceNum + 1; ii < pieceNum+preloadSize+1 && ii < int64(i.NumPieces()); ii++ {
-	// 		r.pp.Preload(r.ctx, r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
-	// 	}
-	// }
+	preloadSize := int64(3)
+	if r.pn != pieceNum {
+		for ii := pieceNum + 1; ii < pieceNum+preloadSize+1 && ii < int64(i.NumPieces()); ii++ {
+			r.pp.Preload(r.ctx, r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
+		}
+	}
 	var pr io.ReadCloser
 	if r.cr == nil {
 		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, pieceStart, pieceEnd, full)

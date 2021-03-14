@@ -22,7 +22,7 @@ func configure(app *cli.App) {
 
 func run(c *cli.Context) error {
 	// Setting ballast
-	_ = make([]byte, 100<<20)
+	// _ = make([]byte, 100<<20)
 
 	// Setting HTTP Client
 	myTransport := &http.Transport{

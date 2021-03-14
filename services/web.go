@@ -65,7 +65,7 @@ func (s *Web) getSourceURL(r *http.Request) (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed to parse source url=%v", su)
 	}
-	// u.Path = u.Path + strings.TrimPrefix(r.URL.Path, "/")
+	u.Path = u.Path + strings.TrimPrefix(r.URL.Path, "/")
 	return u.String(), nil
 }
 
