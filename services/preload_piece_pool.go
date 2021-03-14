@@ -131,6 +131,7 @@ func (s *PreloadPiecePool) Preload(ctx context.Context, src string, h string, p 
 			select {
 			case <-v.(*PiecePreloader).clCh:
 			case <-time.After(30 * time.Second):
+			case <-ctx.Done():
 			}
 			s.sm.Delete(p)
 		}()
