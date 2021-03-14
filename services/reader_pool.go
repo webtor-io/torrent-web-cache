@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"strings"
 
-	"code.cloudfoundry.org/bytefmt"
 	"github.com/pkg/errors"
 )
 
@@ -20,17 +19,10 @@ func NewReaderPool(pp *PiecePool, mip *MetaInfoPool, ttp *TorrentTouchPool, lb *
 	return &ReaderPool{mip: mip, pp: pp, ttp: ttp, lb: lb}
 }
 
-func (rp *ReaderPool) Get(ctx context.Context, s string, rate string, piece string) (*Reader, string, string, error) {
+func (rp *ReaderPool) Get(ctx context.Context, s string, piece string) (*Reader, string, string, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, "", "", errors.Wrapf(err, "Failed to parse source url=%v", s)
-	}
-	var r uint64 = 0
-	if rate != "" {
-		r, err = bytefmt.ToBytes(rate)
-		if err != nil {
-			return nil, "", "", errors.Wrapf(err, "Failed to parse rate=%v", rate)
-		}
 	}
 	parts := strings.SplitN(u.Path, "/", 3)
 	hash := parts[1]
@@ -85,7 +77,7 @@ func (rp *ReaderPool) Get(ctx context.Context, s string, rate string, piece stri
 		}
 	}
 	ppp := NewPreloadPiecePool(rp.pp)
-	tr := NewReader(ctx, rp.mip, ppp, rp.ttp, rp.lb, src, hash, query, r, offset, length)
+	tr := NewReader(ctx, rp.mip, ppp, rp.ttp, rp.lb, src, hash, query, offset, length)
 	if ok, err := tr.Ready(); err != nil {
 		return nil, "", "", errors.Wrap(err, "Failed to get reader ready state")
 	} else if !ok {

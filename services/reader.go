@@ -7,7 +7,6 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/juju/ratelimit"
 	"github.com/pkg/errors"
 )
 
@@ -29,13 +28,12 @@ type Reader struct {
 	cr          io.ReadCloser
 	ctx         context.Context
 	N           int64
-	rate        uint64
 	lb          *LeakyBuffer
 }
 
-func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PreloadPiecePool, ttp *TorrentTouchPool, lb *LeakyBuffer, src string, hash string, query string, rate uint64, offset int64, length int64) *Reader {
+func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PreloadPiecePool, ttp *TorrentTouchPool, lb *LeakyBuffer, src string, hash string, query string, offset int64, length int64) *Reader {
 	return &Reader{lb: lb, ttp: ttp, pp: pp, mip: mip, src: src, query: query,
-		hash: hash, readOffset: 0, touch: false, ctx: ctx, N: -1, rate: rate, offset: offset, length: length}
+		hash: hash, readOffset: 0, touch: false, ctx: ctx, N: -1, offset: offset, length: length}
 }
 
 func (r *Reader) Ready() (bool, error) {
@@ -111,17 +109,7 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	r.cr = pr
 	r.pn = pieceNum
 
-	var rrr io.Reader
-	if r.rate != 0 {
-		if err != nil {
-			return nil, err
-		}
-		bucket := ratelimit.NewBucketWithRate(float64(r.rate), int64(r.rate))
-		rrr = ratelimit.Reader(r.cr, bucket)
-	} else {
-		rrr = r.cr
-	}
-	return rrr, nil
+	return r.cr, nil
 }
 
 func (r *Reader) WriteTo(w io.Writer) (n int64, err error) {

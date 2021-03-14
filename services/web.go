@@ -28,14 +28,13 @@ type Web struct {
 }
 
 const (
-	WEB_HOST_FLAG     = "host"
-	WEB_PORT_FLAG     = "port"
-	WEB_SOURCE_URL    = "source-url"
-	WEB_DOWNLOAD_RATE = "download-rate"
+	WEB_HOST_FLAG  = "host"
+	WEB_PORT_FLAG  = "port"
+	WEB_SOURCE_URL = "source-url"
 )
 
 func NewWeb(c *cli.Context, rp *ReaderPool, cp *CompletedPiecesPool) *Web {
-	return &Web{cp: cp, rate: c.String(WEB_DOWNLOAD_RATE), src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
+	return &Web{cp: cp, src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
 }
 
 func RegisterWebFlags(c *cli.App) {
@@ -44,12 +43,6 @@ func RegisterWebFlags(c *cli.App) {
 		Usage:  "source url",
 		Value:  "",
 		EnvVar: "SOURCE_URL",
-	})
-	c.Flags = append(c.Flags, cli.StringFlag{
-		Name:   WEB_DOWNLOAD_RATE,
-		Usage:  "download rate",
-		Value:  "",
-		EnvVar: "DOWNLOAD_RATE",
 	})
 	c.Flags = append(c.Flags, cli.StringFlag{
 		Name:  WEB_HOST_FLAG,
@@ -61,13 +54,6 @@ func RegisterWebFlags(c *cli.App) {
 		Usage: "http listening port",
 		Value: 8080,
 	})
-}
-
-func (s *Web) getDownloadRate(r *http.Request) string {
-	if s.rate != "" {
-		return s.rate
-	}
-	return r.Header.Get("X-Download-Rate")
 }
 
 func (s *Web) getSourceURL(r *http.Request) (string, error) {
@@ -102,7 +88,6 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 	if !ok || len(keys[0]) < 1 {
 		download = false
 	}
-	rate := s.getDownloadRate(r)
 	if download {
 		downloadFile := piece
 		if piece == "" {
@@ -116,7 +101,7 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 		w.Header().Add("Content-Type", "application/octet-stream")
 		w.Header().Add("Content-Disposition", "attachment; filename=\""+downloadFile+"\"")
 	}
-	tr, u, p, err := s.rp.Get(r.Context(), url, rate, piece)
+	tr, u, p, err := s.rp.Get(r.Context(), url, piece)
 	if u != "" {
 		http.Redirect(w, r, u, 302)
 		return
