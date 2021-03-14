@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type PieceLoader struct {
@@ -55,6 +56,10 @@ func (s *PieceLoader) get() (io.ReadCloser, error) {
 	if ok {
 		r, err = s.s3pp.Get(s.ctx, s.h, s.p, s.start, s.end, s.full)
 		if r == nil || err != nil {
+			if s.ctx.Err() != nil {
+				return nil, err
+			}
+			log.WithError(err).Warnf("Failed to get piece from S3, try another source hash=%v piece=%v", s.h, s.p)
 			r, err = s.httppp.Get(s.ctx, s.src, s.h, s.p, s.q, s.start, s.end, s.full)
 		}
 	} else {
