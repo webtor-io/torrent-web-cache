@@ -90,10 +90,10 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	}
 	full := pieceEnd-pieceStart == pieceLength-1
 	// Preload
-	var minPreloadBytes int64 = 10_000_000
-	preloadBytes := int64(float64(r.length) * 0.1)
-	if preloadBytes < minPreloadBytes {
-		preloadBytes = minPreloadBytes
+	var maxPreloadBytes int64 = 5_000_000
+	preloadBytes := int64(float64(r.length) * 0.05)
+	if preloadBytes > maxPreloadBytes {
+		preloadBytes = maxPreloadBytes
 	}
 	preloadSize := preloadBytes / pieceLength
 	if r.pn != pieceNum {
