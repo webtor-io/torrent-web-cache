@@ -12,14 +12,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	PRELOAD_TTL = 60
+)
+
 type PreloadReader struct {
-	r    io.Reader
-	clCh chan bool
+	r io.Reader
 }
 
 type PreloadPiecePool struct {
-	pp *PiecePool
-	sm sync.Map
+	pp     *PiecePool
+	sm     sync.Map
+	timers sync.Map
+	expire time.Duration
 }
 
 type PiecePreloader struct {
@@ -34,11 +39,10 @@ type PiecePreloader struct {
 	r      *PreloadReader
 	ctx    context.Context
 	mux    sync.Mutex
-	clCh   chan bool
 }
 
 func NewPreloadReader(r io.Reader) *PreloadReader {
-	return &PreloadReader{r: r, clCh: make(chan bool)}
+	return &PreloadReader{r: r}
 }
 
 func (s *PreloadReader) Read(p []byte) (n int, err error) {
@@ -53,13 +57,12 @@ func (r *PreloadReader) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (s *PreloadReader) Close() error {
-	close(s.clCh)
 	return nil
 }
 
 func NewPiecePreloader(ctx context.Context, pp *PiecePool, src string, h string, p string, q string) *PiecePreloader {
 	return &PiecePreloader{ctx: ctx, pp: pp, src: src,
-		h: h, p: p, q: q, clCh: make(chan bool)}
+		h: h, p: p, q: q}
 }
 
 func (s *PiecePreloader) Preload() {
@@ -92,14 +95,6 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 		lr := io.LimitReader(buf, end-start+1)
 		s.r = NewPreloadReader(lr)
 	}
-	go func() {
-		select {
-		case <-s.r.clCh:
-		case <-time.After(15 * time.Second):
-		}
-		close(s.clCh)
-		log.Infof("Preloader closed hash=%v piece=%v", s.h, s.p)
-	}()
 	return s.r, nil
 }
 
@@ -113,7 +108,7 @@ func (s *PiecePreloader) preload() ([]byte, error) {
 }
 
 func NewPreloadPiecePool(pp *PiecePool) *PreloadPiecePool {
-	return &PreloadPiecePool{pp: pp}
+	return &PreloadPiecePool{pp: pp, expire: time.Duration(PRELOAD_TTL) * time.Second}
 }
 
 func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p string, q string, start int64, end int64, full bool) (io.ReadCloser, error) {
@@ -125,15 +120,18 @@ func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p stri
 }
 
 func (s *PreloadPiecePool) Preload(ctx context.Context, src string, h string, p string, q string) {
-	v, loaded := s.sm.LoadOrStore(p, NewPiecePreloader(ctx, s.pp, src, h, p, q))
-	if !loaded {
+	v, _ := s.sm.LoadOrStore(p, NewPiecePreloader(ctx, s.pp, src, h, p, q))
+	t, tLoaded := s.timers.LoadOrStore(p, time.NewTimer(s.expire))
+	timer := t.(*time.Timer)
+	if !tLoaded {
 		go func() {
-			select {
-			case <-v.(*PiecePreloader).clCh:
-			case <-time.After(30 * time.Second):
-			}
+			<-timer.C
+			log.Infof("Clean preloaded piece hash=%v piece=%v", h, p)
 			s.sm.Delete(p)
+			s.timers.Delete(p)
 		}()
 		v.(*PiecePreloader).Preload()
+	} else {
+		timer.Reset(s.expire)
 	}
 }

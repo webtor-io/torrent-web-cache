@@ -10,6 +10,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	MAX_PRELOAD_BYTES = 10_000_000
+)
+
 type Reader struct {
 	pp          *PreloadPiecePool
 	ttp         *TorrentTouchPool
@@ -90,10 +94,9 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	}
 	full := pieceEnd-pieceStart == pieceLength-1
 	// Preload
-	var maxPreloadBytes int64 = 5_000_000
 	preloadBytes := int64(float64(r.length) * 0.05)
-	if preloadBytes > maxPreloadBytes {
-		preloadBytes = maxPreloadBytes
+	if preloadBytes > MAX_PRELOAD_BYTES {
+		preloadBytes = MAX_PRELOAD_BYTES
 	}
 	preloadSize := preloadBytes / pieceLength
 	if r.pn != pieceNum {
