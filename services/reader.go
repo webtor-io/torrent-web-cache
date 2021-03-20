@@ -94,16 +94,16 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	}
 	full := pieceEnd-pieceStart == pieceLength-1
 	// Preload
-	preloadBytes := int64(float64(r.length) * 0.05)
-	if preloadBytes > MAX_PRELOAD_BYTES {
-		preloadBytes = MAX_PRELOAD_BYTES
-	}
-	preloadSize := preloadBytes / pieceLength
-	if r.pn != pieceNum {
-		for ii := pieceNum + 1; ii < pieceNum+preloadSize+1 && ii < int64(i.NumPieces()); ii++ {
-			r.pp.Preload(r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
-		}
-	}
+	// preloadBytes := int64(float64(r.length) * 0.05)
+	// if preloadBytes > MAX_PRELOAD_BYTES {
+	// 	preloadBytes = MAX_PRELOAD_BYTES
+	// }
+	// preloadSize := preloadBytes / pieceLength
+	// if r.pn != pieceNum {
+	// 	for ii := pieceNum + 1; ii < pieceNum+preloadSize+1 && ii < int64(i.NumPieces()); ii++ {
+	// 		r.pp.Preload((), r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
+	// 	}
+	// }
 	var pr io.ReadCloser
 	if r.cr == nil {
 		pr, err = r.pp.Get(r.ctx, r.src, r.hash, piece.Hash().HexString(), r.query, pieceStart, pieceEnd, full)
