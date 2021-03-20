@@ -1,8 +1,10 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
 	"os"
 	"sync"
 	"time"
@@ -18,7 +20,6 @@ const (
 
 type PreloadReader struct {
 	r      io.Reader
-	f      *os.File
 	wg     *sync.WaitGroup
 	closed bool
 }
@@ -42,10 +43,11 @@ type PiecePreloader struct {
 	ctx    context.Context
 	mux    sync.Mutex
 	wg     sync.WaitGroup
+	b      []byte
 }
 
-func NewPreloadReader(wg *sync.WaitGroup, f *os.File, r io.Reader) *PreloadReader {
-	return &PreloadReader{wg: wg, f: f, r: r}
+func NewPreloadReader(wg *sync.WaitGroup, r io.Reader) *PreloadReader {
+	return &PreloadReader{wg: wg, r: r}
 }
 
 func (s *PreloadReader) Read(p []byte) (n int, err error) {
@@ -65,7 +67,6 @@ func (s *PreloadReader) Close() error {
 	}
 	s.closed = true
 	s.wg.Done()
-	s.f.Close()
 	return nil
 }
 
@@ -96,16 +97,31 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 	if err != nil {
 		return nil, s.err
 	}
+	defer f.Close()
+	if s.b == nil {
+		s.b, err = ioutil.ReadAll(f)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to read file")
+		}
+		go func() {
+			<-time.After(5 * time.Second)
+			s.wg.Wait()
+			s.mux.Lock()
+			defer s.mux.Unlock()
+			s.b = nil
+		}()
+	}
+	buf := bytes.NewReader(s.b)
 	s.wg.Add(1)
 	if full {
-		return NewPreloadReader(&s.wg, f, f), nil
+		return NewPreloadReader(&s.wg, buf), nil
 	} else {
-		_, err := f.Seek(start, io.SeekStart)
+		_, err := buf.Seek(start, io.SeekStart)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to seek to %v in piece=%v", start, s.p)
 		}
-		lr := io.LimitReader(f, end-start+1)
-		return NewPreloadReader(&s.wg, f, lr), nil
+		lr := io.LimitReader(buf, end-start+1)
+		return NewPreloadReader(&s.wg, lr), nil
 	}
 }
 func (s *PiecePreloader) Clean() error {
@@ -113,6 +129,7 @@ func (s *PiecePreloader) Clean() error {
 	defer s.mux.Unlock()
 	path := PRELOAD_CACHE_PATH + "/" + s.p
 	s.wg.Wait()
+	log.Infof("Clean preloaded piece hash=%v piece=%v", s.h, s.p)
 	return os.Remove(path)
 }
 
@@ -122,12 +139,16 @@ func (s *PiecePreloader) preload() error {
 	if err != nil {
 		errors.Wrapf(err, "Failed to preload piece=%v", s.p)
 	}
+	s.b, err = ioutil.ReadAll(r)
+	if err != nil {
+		errors.Wrapf(err, "Failed to copy piece=%v", s.p)
+	}
 	path := PRELOAD_CACHE_PATH + "/" + s.p
 	f, err := os.Create(path)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to create preload file piece=%v path=%v", s.p, path)
 	}
-	_, err = io.Copy(f, r)
+	_, err = io.Copy(f, bytes.NewReader(s.b))
 	return err
 }
 
@@ -163,7 +184,6 @@ func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 	if !tLoaded {
 		go func() {
 			<-timer.C
-			log.Infof("Clean preloaded piece hash=%v piece=%v", h, p)
 			s.sm.Delete(p)
 			s.timers.Delete(p)
 			err := v.(*PiecePreloader).Clean()
