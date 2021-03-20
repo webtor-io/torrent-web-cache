@@ -66,6 +66,7 @@ func run(c *cli.Context) error {
 
 	// Setting Preload Piece Pool
 	ppp := s.NewPreloadPiecePool(pp)
+	defer ppp.Close()
 
 	// Setting Reader Pool
 	rp := s.NewReaderPool(pp, mip, ttp, lb, ppp)

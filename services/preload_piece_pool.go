@@ -26,6 +26,7 @@ type PreloadPiecePool struct {
 	sm     sync.Map
 	timers sync.Map
 	expire time.Duration
+	inited bool
 }
 
 type PiecePreloader struct {
@@ -97,8 +98,9 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to seek to %v in piece=%v", start, s.p)
 		}
-		lr := io.LimitReader(f, end-start+1)
-		return NewPreloadReader(f, lr), nil
+		// lr := io.LimitReader(f, end-start+1)
+		// return NewPreloadReader(f, lr), nil
+		return f, nil
 	}
 }
 func (s *PiecePreloader) Clean() error {
@@ -132,8 +134,21 @@ func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p stri
 	}
 	return s.pp.Get(ctx, src, h, p, q, start, end, full)
 }
+func (s *PreloadPiecePool) Close() {
+	err := os.RemoveAll(PRELOAD_CACHE_PATH)
+	if err != nil {
+		log.WithError(err).Warnf("Failed to clean cache folder path=%v", PRELOAD_CACHE_PATH)
+	}
+}
 
 func (s *PreloadPiecePool) Preload(ctx context.Context, src string, h string, p string, q string) {
+	if !s.inited {
+		err := os.MkdirAll(PRELOAD_CACHE_PATH, 0777)
+		if err != nil {
+			log.WithError(err).Warnf("Failed to create cache folder path=%v", PRELOAD_CACHE_PATH)
+		}
+		s.inited = true
+	}
 	v, _ := s.sm.LoadOrStore(p, NewPiecePreloader(ctx, s.pp, src, h, p, q))
 	t, tLoaded := s.timers.LoadOrStore(p, time.NewTimer(s.expire))
 	timer := t.(*time.Timer)
