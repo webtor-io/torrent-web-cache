@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	PRELOAD_TTL        = 300
+	PRELOAD_TTL        = 60
 	PRELOAD_CACHE_PATH = "cache"
 )
 
@@ -71,11 +71,9 @@ func (s *PiecePreloader) Preload() {
 		return
 	}
 	s.mux.Lock()
-	go func() {
-		defer s.mux.Unlock()
-		s.err = s.preload()
-		s.inited = true
-	}()
+	defer s.mux.Unlock()
+	s.err = s.preload()
+	s.inited = true
 }
 
 func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, error) {
@@ -97,12 +95,13 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to seek to %v in piece=%v", start, s.p)
 		}
-		// lr := io.LimitReader(f, end-start+1)
-		// return NewPreloadReader(f, lr), nil
-		return f, nil
+		lr := io.LimitReader(f, end-start+1)
+		return NewPreloadReader(f, lr), nil
 	}
 }
 func (s *PiecePreloader) Clean() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	path := PRELOAD_CACHE_PATH + "/" + s.p
 	return os.Remove(path)
 }
