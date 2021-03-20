@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	PRELOAD_TTL        = 1800
+	PRELOAD_TTL        = 60
 	PRELOAD_CACHE_PATH = "cache"
 )
 
@@ -37,7 +37,6 @@ type PiecePreloader struct {
 	q      string
 	err    error
 	inited bool
-	b      []byte
 	ctx    context.Context
 	mux    sync.Mutex
 }
