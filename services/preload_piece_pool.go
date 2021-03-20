@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	PRELOAD_TTL        = 60
+	PRELOAD_TTL        = 300
 	PRELOAD_CACHE_PATH = "cache"
 )
 
@@ -140,7 +140,7 @@ func (s *PreloadPiecePool) Close() {
 	}
 }
 
-func (s *PreloadPiecePool) Preload(ctx context.Context, src string, h string, p string, q string) {
+func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 	if !s.inited {
 		err := os.MkdirAll(PRELOAD_CACHE_PATH, 0777)
 		if err != nil {
@@ -148,7 +148,7 @@ func (s *PreloadPiecePool) Preload(ctx context.Context, src string, h string, p 
 		}
 		s.inited = true
 	}
-	v, _ := s.sm.LoadOrStore(p, NewPiecePreloader(ctx, s.pp, src, h, p, q))
+	v, _ := s.sm.LoadOrStore(p, NewPiecePreloader(context.Background(), s.pp, src, h, p, q))
 	t, tLoaded := s.timers.LoadOrStore(p, time.NewTimer(s.expire))
 	timer := t.(*time.Timer)
 	if !tLoaded {
