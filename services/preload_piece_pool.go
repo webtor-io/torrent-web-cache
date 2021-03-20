@@ -1,10 +1,9 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -13,11 +12,13 @@ import (
 )
 
 const (
-	PRELOAD_TTL = 60
+	PRELOAD_TTL        = 1800
+	PRELOAD_CACHE_PATH = "cache"
 )
 
 type PreloadReader struct {
 	r io.Reader
+	f *os.File
 }
 
 type PreloadPiecePool struct {
@@ -36,13 +37,12 @@ type PiecePreloader struct {
 	err    error
 	inited bool
 	b      []byte
-	r      *PreloadReader
 	ctx    context.Context
 	mux    sync.Mutex
 }
 
-func NewPreloadReader(r io.Reader) *PreloadReader {
-	return &PreloadReader{r: r}
+func NewPreloadReader(f *os.File, r io.Reader) *PreloadReader {
+	return &PreloadReader{f: f, r: r}
 }
 
 func (s *PreloadReader) Read(p []byte) (n int, err error) {
@@ -57,6 +57,7 @@ func (r *PreloadReader) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (s *PreloadReader) Close() error {
+	s.f.Close()
 	return nil
 }
 
@@ -72,7 +73,7 @@ func (s *PiecePreloader) Preload() {
 	s.mux.Lock()
 	go func() {
 		defer s.mux.Unlock()
-		s.b, s.err = s.preload()
+		s.err = s.preload()
 		s.inited = true
 	}()
 }
@@ -84,27 +85,40 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 	if s.err != nil {
 		return nil, s.err
 	}
-	buf := bytes.NewReader(s.b)
+	path := PRELOAD_CACHE_PATH + "/" + s.p
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, s.err
+	}
 	if full {
-		s.r = NewPreloadReader(buf)
+		return f, nil
 	} else {
-		_, err := buf.Seek(start, io.SeekStart)
+		_, err := f.Seek(start, io.SeekStart)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to seek to %v in piece=%v", start, s.p)
 		}
-		lr := io.LimitReader(buf, end-start+1)
-		s.r = NewPreloadReader(lr)
+		lr := io.LimitReader(f, end-start+1)
+		return NewPreloadReader(f, lr), nil
 	}
-	return s.r, nil
+}
+func (s *PiecePreloader) Clean() error {
+	path := PRELOAD_CACHE_PATH + "/" + s.p
+	return os.Remove(path)
 }
 
-func (s *PiecePreloader) preload() ([]byte, error) {
+func (s *PiecePreloader) preload() error {
 	log.Infof("Start preloading hash=%v piece=%v", s.h, s.p)
 	r, err := s.pp.Get(s.ctx, s.src, s.h, s.p, s.q, 0, 0, true)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to preload piece=%v", s.p)
+		errors.Wrapf(err, "Failed to preload piece=%v", s.p)
 	}
-	return ioutil.ReadAll(r)
+	path := PRELOAD_CACHE_PATH + "/" + s.p
+	f, err := os.Create(path)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to create preload file piece=%v path=%v", s.p, path)
+	}
+	_, err = io.Copy(f, r)
+	return err
 }
 
 func NewPreloadPiecePool(pp *PiecePool) *PreloadPiecePool {
@@ -129,6 +143,10 @@ func (s *PreloadPiecePool) Preload(ctx context.Context, src string, h string, p 
 			log.Infof("Clean preloaded piece hash=%v piece=%v", h, p)
 			s.sm.Delete(p)
 			s.timers.Delete(p)
+			err := v.(*PiecePreloader).Clean()
+			if err != nil {
+				log.WithError(err).Warnf("Failed to clean preloaded piece hash=%v piece=%v", h, p)
+			}
 		}()
 		v.(*PiecePreloader).Preload()
 	} else {

@@ -28,6 +28,9 @@ COPY --from=build /app/server .
 # copy certs
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+# make cache directory
+RUN mkdir -p /app/cache
+
 # tell we are exposing our service on port 8080, 8081
 EXPOSE 8080 8081
 
