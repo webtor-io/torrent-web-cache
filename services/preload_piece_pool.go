@@ -17,8 +17,10 @@ const (
 )
 
 type PreloadReader struct {
-	r io.Reader
-	f *os.File
+	r      io.Reader
+	f      *os.File
+	wg     *sync.WaitGroup
+	closed bool
 }
 
 type PreloadPiecePool struct {
@@ -39,10 +41,11 @@ type PiecePreloader struct {
 	inited bool
 	ctx    context.Context
 	mux    sync.Mutex
+	wg     sync.WaitGroup
 }
 
-func NewPreloadReader(f *os.File, r io.Reader) *PreloadReader {
-	return &PreloadReader{f: f, r: r}
+func NewPreloadReader(wg *sync.WaitGroup, f *os.File, r io.Reader) *PreloadReader {
+	return &PreloadReader{wg: wg, f: f, r: r}
 }
 
 func (s *PreloadReader) Read(p []byte) (n int, err error) {
@@ -57,6 +60,11 @@ func (r *PreloadReader) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (s *PreloadReader) Close() error {
+	if s.closed {
+		return nil
+	}
+	s.closed = true
+	s.wg.Done()
 	s.f.Close()
 	return nil
 }
@@ -71,15 +79,15 @@ func (s *PiecePreloader) Preload() {
 		return
 	}
 	s.mux.Lock()
+	s.inited = true
 	defer s.mux.Unlock()
 	s.err = s.preload()
-	s.inited = true
 }
 
 func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	log.Infof("Using preloaded piece hash=%v piece=%v", s.h, s.p)
+	log.Infof("Using preloaded piece hash=%v piece=%v, start=%v end=%v full=%v", s.h, s.p, start, end, full)
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -88,21 +96,23 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 	if err != nil {
 		return nil, s.err
 	}
+	s.wg.Add(1)
 	if full {
-		return f, nil
+		return NewPreloadReader(&s.wg, f, f), nil
 	} else {
 		_, err := f.Seek(start, io.SeekStart)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to seek to %v in piece=%v", start, s.p)
 		}
 		lr := io.LimitReader(f, end-start+1)
-		return NewPreloadReader(f, lr), nil
+		return NewPreloadReader(&s.wg, f, lr), nil
 	}
 }
 func (s *PiecePreloader) Clean() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	path := PRELOAD_CACHE_PATH + "/" + s.p
+	s.wg.Wait()
 	return os.Remove(path)
 }
 
