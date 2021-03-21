@@ -22,6 +22,9 @@ RUN go build -mod=vendor -ldflags '-w -s' -a -installsuffix cgo -o server
 
 FROM alpine:latest
 
+# fix memory draining
+ENV GODEBUG=madvdontneed=1
+
 # copy our static linked library
 COPY --from=build /app/server .
 
