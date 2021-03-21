@@ -18,7 +18,7 @@ type CompletedPiecesLoader struct {
 }
 
 func NewCompletedPiecesLoader(ctx context.Context, infoHash string, st *S3Storage) *CompletedPiecesLoader {
-	return &CompletedPiecesLoader{ctx: ctx, st: st, infoHash: infoHash, inited: false}
+	return &CompletedPiecesLoader{ctx: ctx, st: st, infoHash: infoHash}
 }
 
 func (s *CompletedPiecesLoader) Get() (*CompletedPieces, error) {

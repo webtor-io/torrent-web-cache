@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	COMPLETED_PIECES_TTL = 10
+	COMPLETED_PIECES_TTL = 300
 )
 
 type CompletedPiecesPool struct {
