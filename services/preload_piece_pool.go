@@ -108,25 +108,31 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 	}
 }
 func (s *PiecePreloader) Clean() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	path := PRELOAD_CACHE_PATH + "/" + s.p
-	return os.Remove(path)
+	// s.mux.Lock()
+	// defer s.mux.Unlock()
+	// path := PRELOAD_CACHE_PATH + "/" + s.p
+	// return os.Remove(path)
+	return nil
 }
 
 func (s *PiecePreloader) preload() error {
-	log.Infof("Start preloading hash=%v piece=%v", s.h, s.p)
-	r, err := s.pp.Get(s.ctx, s.src, s.h, s.p, s.q, 0, 0, true)
-	if err != nil {
-		errors.Wrapf(err, "Failed to preload piece=%v", s.p)
-	}
 	path := PRELOAD_CACHE_PATH + "/" + s.p
-	f, err := os.Create(path)
-	if err != nil {
-		return errors.Wrapf(err, "Failed to create preload file piece=%v path=%v", s.p, path)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		log.Infof("Start preloading hash=%v piece=%v", s.h, s.p)
+		r, err := s.pp.Get(s.ctx, s.src, s.h, s.p, s.q, 0, 0, true)
+		if err != nil {
+			errors.Wrapf(err, "Failed to preload piece=%v", s.p)
+		}
+		f, err := os.Create(path)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to create preload file piece=%v path=%v", s.p, path)
+		}
+		_, err = io.Copy(f, r)
+		return err
+	} else {
+		log.Infof("Preload data already exists hash=%v piece=%v", s.h, s.p)
+		return nil
 	}
-	_, err = io.Copy(f, r)
-	return err
 }
 
 func NewPreloadPiecePool(pp *PiecePool) *PreloadPiecePool {
