@@ -1,5 +1,9 @@
 package services
 
+const (
+	PRELOAD_QUEUE_CONCURRENCY = 3
+)
+
 type PreloadQueue struct {
 	pp     *PreloadPiecePool
 	ch     chan func()
@@ -8,11 +12,13 @@ type PreloadQueue struct {
 
 func NewPreloadQueue(pp *PreloadPiecePool) *PreloadQueue {
 	ch := make(chan func())
-	go func() {
-		for i := range ch {
-			i()
-		}
-	}()
+	for i := 0; i < PRELOAD_QUEUE_CONCURRENCY; i++ {
+		go func() {
+			for i := range ch {
+				i()
+			}
+		}()
+	}
 	return &PreloadQueue{
 		pp: pp,
 		ch: ch,
