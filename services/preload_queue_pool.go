@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	PRELOAD_QUEUE_TTL = 600
+	PRELOAD_QUEUE_TTL = 60
 )
 
 type PreloadQueuePool struct {
