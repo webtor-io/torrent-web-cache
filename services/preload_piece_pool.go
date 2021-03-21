@@ -19,7 +19,8 @@ const (
 type PreloadReader struct {
 	r      io.Reader
 	f      *os.File
-	wg     *sync.WaitGroup
+	h      string
+	p      string
 	closed bool
 }
 
@@ -41,11 +42,10 @@ type PiecePreloader struct {
 	inited bool
 	ctx    context.Context
 	mux    sync.Mutex
-	wg     sync.WaitGroup
 }
 
-func NewPreloadReader(wg *sync.WaitGroup, f *os.File, r io.Reader) *PreloadReader {
-	return &PreloadReader{wg: wg, f: f, r: r}
+func NewPreloadReader(f *os.File, r io.Reader, h string, p string) *PreloadReader {
+	return &PreloadReader{f: f, r: r, h: h, p: p}
 }
 
 func (s *PreloadReader) Read(p []byte) (n int, err error) {
@@ -64,7 +64,7 @@ func (s *PreloadReader) Close() error {
 		return nil
 	}
 	s.closed = true
-	s.wg.Done()
+	log.Infof("Closing reader hash=%v piece=%v", s.h, s.p)
 	s.f.Close()
 	return nil
 }
@@ -96,23 +96,21 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 	if err != nil {
 		return nil, s.err
 	}
-	s.wg.Add(1)
 	if full {
-		return NewPreloadReader(&s.wg, f, f), nil
+		return NewPreloadReader(f, f, s.h, s.p), nil
 	} else {
 		_, err := f.Seek(start, io.SeekStart)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to seek to %v in piece=%v", start, s.p)
 		}
 		lr := io.LimitReader(f, end-start+1)
-		return NewPreloadReader(&s.wg, f, lr), nil
+		return NewPreloadReader(f, lr, s.h, s.p), nil
 	}
 }
 func (s *PiecePreloader) Clean() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	path := PRELOAD_CACHE_PATH + "/" + s.p
-	s.wg.Wait()
 	return os.Remove(path)
 }
 
