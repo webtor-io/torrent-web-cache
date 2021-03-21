@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	MAX_PRELOAD_BYTES = 10_000_000
+	MAX_PRELOAD_BYTES = 30_000_000
 )
 
 type Reader struct {
@@ -33,11 +33,14 @@ type Reader struct {
 	ctx         context.Context
 	N           int64
 	lb          *LeakyBuffer
+	pqp         *PreloadQueuePool
+	pid         string
 }
 
-func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PreloadPiecePool, ttp *TorrentTouchPool, lb *LeakyBuffer, src string, hash string, query string, offset int64, length int64) *Reader {
-	return &Reader{lb: lb, ttp: ttp, pp: pp, mip: mip, src: src, query: query,
-		hash: hash, readOffset: 0, touch: false, ctx: ctx, N: -1, offset: offset, length: length}
+func NewReader(ctx context.Context, mip *MetaInfoPool, pp *PreloadPiecePool, ttp *TorrentTouchPool, lb *LeakyBuffer, pqp *PreloadQueuePool, src string, hash string, query string, offset int64, length int64, pid string) *Reader {
+	return &Reader{lb: lb, ttp: ttp, pp: pp, mip: mip, pqp: pqp, src: src, query: query,
+		hash: hash, readOffset: 0, touch: false, ctx: ctx, N: -1, offset: offset,
+		length: length, pid: pid}
 }
 
 func (r *Reader) Ready() (bool, error) {
@@ -101,9 +104,7 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	preloadSize := preloadBytes / pieceLength
 	if r.pn != pieceNum {
 		for ii := pieceNum + 1; ii < pieceNum+preloadSize+1 && ii < int64(i.NumPieces()); ii++ {
-			go func(ii int64) {
-				r.pp.Preload(r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
-			}(ii)
+			r.pqp.Push(r.pid, r.src, r.hash, i.Piece(int(ii)).Hash().HexString(), r.query)
 		}
 	}
 	var pr io.ReadCloser

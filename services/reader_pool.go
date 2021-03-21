@@ -14,13 +14,14 @@ type ReaderPool struct {
 	ttp *TorrentTouchPool
 	lb  *LeakyBuffer
 	ppp *PreloadPiecePool
+	pqp *PreloadQueuePool
 }
 
-func NewReaderPool(pp *PiecePool, mip *MetaInfoPool, ttp *TorrentTouchPool, lb *LeakyBuffer, ppp *PreloadPiecePool) *ReaderPool {
-	return &ReaderPool{mip: mip, pp: pp, ttp: ttp, lb: lb, ppp: ppp}
+func NewReaderPool(pp *PiecePool, mip *MetaInfoPool, ttp *TorrentTouchPool, lb *LeakyBuffer, ppp *PreloadPiecePool, pqp *PreloadQueuePool) *ReaderPool {
+	return &ReaderPool{mip: mip, pp: pp, ttp: ttp, lb: lb, ppp: ppp, pqp: pqp}
 }
 
-func (rp *ReaderPool) Get(ctx context.Context, s string, piece string) (*Reader, string, string, error) {
+func (rp *ReaderPool) Get(ctx context.Context, s string, piece string, pid string) (*Reader, string, string, error) {
 	u, err := url.Parse(s)
 	if err != nil {
 		return nil, "", "", errors.Wrapf(err, "Failed to parse source url=%v", s)
@@ -77,7 +78,7 @@ func (rp *ReaderPool) Get(ctx context.Context, s string, piece string) (*Reader,
 			return nil, "", "", errors.Errorf("File not found path=%v infohash=%v", path, hash)
 		}
 	}
-	tr := NewReader(ctx, rp.mip, rp.ppp, rp.ttp, rp.lb, src, hash, query, offset, length)
+	tr := NewReader(ctx, rp.mip, rp.ppp, rp.ttp, rp.lb, rp.pqp, src, hash, query, offset, length, pid)
 	if ok, err := tr.Ready(); err != nil {
 		return nil, "", "", errors.Wrap(err, "Failed to get reader ready state")
 	} else if !ok {

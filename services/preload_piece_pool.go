@@ -136,6 +136,10 @@ func NewPreloadPiecePool(pp *PiecePool) *PreloadPiecePool {
 func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p string, q string, start int64, end int64, full bool) (io.ReadCloser, error) {
 	v, ok := s.sm.Load(p)
 	if ok {
+		tt, ok := s.timers.Load(p)
+		if ok {
+			tt.(*time.Timer).Reset(s.expire)
+		}
 		return v.(*PiecePreloader).Get(start, end, full)
 	}
 	return s.pp.Get(ctx, src, h, p, q, start, end, full)
@@ -146,7 +150,6 @@ func (s *PreloadPiecePool) Close() {
 		log.WithError(err).Warnf("Failed to clean cache folder path=%v", PRELOAD_CACHE_PATH)
 	}
 }
-
 func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 	if !s.inited {
 		err := os.MkdirAll(PRELOAD_CACHE_PATH, 0777)

@@ -71,8 +71,11 @@ func run(c *cli.Context) error {
 	ppp := s.NewPreloadPiecePool(pp)
 	defer ppp.Close()
 
+	// Setting Preload Queue Pool
+	pqp := s.NewPreloadQueuePool(ppp)
+
 	// Setting Reader Pool
-	rp := s.NewReaderPool(pp, mip, ttp, lb, ppp)
+	rp := s.NewReaderPool(pp, mip, ttp, lb, ppp, pqp)
 
 	// Setting ProbeService
 	probe := cs.NewProbe(c)
