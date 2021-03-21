@@ -52,19 +52,7 @@ func (r *Reader) Ready() (bool, error) {
 }
 
 func (r *Reader) getInfo() (*metainfo.Info, error) {
-	if r.info != nil {
-		return r.info, nil
-	}
-	mi, err := r.mip.Get(r.hash)
-	if err != nil {
-		return nil, err
-	}
-	info, err := mi.UnmarshalInfo()
-	if err != nil {
-		return nil, err
-	}
-	r.info = &info
-	return &info, nil
+	return r.mip.Get(r.hash)
 }
 
 func (r *Reader) getReader(limit int64) (io.Reader, error) {

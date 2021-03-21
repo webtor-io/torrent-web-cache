@@ -12,7 +12,7 @@ type MetaInfoLoader struct {
 	st       *S3Storage
 	infoHash string
 	mux      sync.Mutex
-	mi       *metainfo.MetaInfo
+	mi       *metainfo.Info
 	err      error
 	inited   bool
 	ctx      context.Context
@@ -22,7 +22,7 @@ func NewMetaInfoLoader(ctx context.Context, infoHash string, st *S3Storage) *Met
 	return &MetaInfoLoader{ctx: ctx, st: st, infoHash: infoHash, inited: false}
 }
 
-func (s *MetaInfoLoader) Get() (*metainfo.MetaInfo, error) {
+func (s *MetaInfoLoader) Get() (*metainfo.Info, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if s.inited {
@@ -33,7 +33,7 @@ func (s *MetaInfoLoader) Get() (*metainfo.MetaInfo, error) {
 	return s.mi, s.err
 }
 
-func (s *MetaInfoLoader) get() (*metainfo.MetaInfo, error) {
+func (s *MetaInfoLoader) get() (*metainfo.Info, error) {
 	r, err := s.st.GetTorrent(s.ctx, s.infoHash)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to fetch torrent")
@@ -46,5 +46,9 @@ func (s *MetaInfoLoader) get() (*metainfo.MetaInfo, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to load torrent")
 	}
-	return mi, nil
+	info, err := mi.UnmarshalInfo()
+	if err != nil {
+		return nil, err
+	}
+	return &info, nil
 }

@@ -3,7 +3,10 @@ package services
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -12,8 +15,9 @@ import (
 )
 
 const (
-	PRELOAD_TTL        = 10
-	PRELOAD_CACHE_PATH = "cache"
+	PRELOAD_TTL            = 10
+	PRELOAD_CACHE_PATH     = "cache"
+	PRELOAD_CACHE_MAX_SIZE = 10_000_000_000
 )
 
 type PreloadReader struct {
@@ -25,11 +29,12 @@ type PreloadReader struct {
 }
 
 type PreloadPiecePool struct {
-	pp     *PiecePool
-	sm     sync.Map
-	timers sync.Map
-	expire time.Duration
-	inited bool
+	pp       *PiecePool
+	sm       sync.Map
+	timers   sync.Map
+	expire   time.Duration
+	inited   bool
+	cleaning bool
 }
 
 type PiecePreloader struct {
@@ -156,12 +161,71 @@ func (s *PreloadPiecePool) Close() {
 		log.WithError(err).Warnf("Failed to clean cache folder path=%v", PRELOAD_CACHE_PATH)
 	}
 }
+func (s *PreloadPiecePool) cleanCache() error {
+	if s.cleaning {
+		return nil
+	}
+	s.cleaning = true
+	defer func() {
+		s.cleaning = false
+	}()
+	var size int64
+	err := filepath.Walk(PRELOAD_CACHE_PATH, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	if size < PRELOAD_CACHE_MAX_SIZE {
+		return nil
+	}
+	files, err := ioutil.ReadDir(PRELOAD_CACHE_PATH)
+	if err != nil {
+		return err
+	}
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].ModTime().Before(files[j].ModTime())
+	})
+	for _, f := range files {
+		if _, ok := s.sm.Load(f.Name()); ok {
+			continue
+		}
+		path := PRELOAD_CACHE_PATH + "/" + f.Name()
+		err := os.Remove(path)
+		if err != nil {
+			return err
+		}
+		log.Infof("Clean cache file name=%v time=%v size=%v", f.Name(), f.ModTime(), f.Size())
+		size = size - f.Size()
+		if size < PRELOAD_CACHE_MAX_SIZE {
+			return nil
+		}
+	}
+	return nil
+}
 func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 	if !s.inited {
 		err := os.MkdirAll(PRELOAD_CACHE_PATH, 0777)
 		if err != nil {
 			log.WithError(err).Warnf("Failed to create cache folder path=%v", PRELOAD_CACHE_PATH)
 		}
+		go func() {
+			ticker := time.NewTicker(5 * time.Minute)
+			for range ticker.C {
+				go func() {
+					err := s.cleanCache()
+					if err != nil {
+						log.WithError(err).Warnf("Failed to clean cache folder path=%v", PRELOAD_CACHE_PATH)
+					}
+				}()
+			}
+		}()
 		s.inited = true
 	}
 	v, _ := s.sm.LoadOrStore(p, NewPiecePreloader(context.Background(), s.pp, src, h, p, q))

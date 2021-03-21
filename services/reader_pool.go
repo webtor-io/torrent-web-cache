@@ -31,16 +31,12 @@ func (rp *ReaderPool) Get(ctx context.Context, s string, piece string, pid strin
 	path := parts[2]
 	src := u.Scheme + "://" + u.Host
 	query := u.RawQuery
-	mi, err := rp.mip.Get(hash)
+	info, err := rp.mip.Get(hash)
 	if err != nil {
 		return nil, "", "", errors.Wrap(err, "Failed to get MetaInfo")
 	}
-	if mi == nil {
+	if info == nil {
 		return nil, u.RequestURI(), "", nil
-	}
-	info, err := mi.UnmarshalInfo()
-	if err != nil {
-		return nil, "", "", err
 	}
 
 	var offset int64 = 0
@@ -68,7 +64,7 @@ func (rp *ReaderPool) Get(ctx context.Context, s string, piece string, pid strin
 			tt = append(tt, info.Name)
 			tt = append(tt, f.Path...)
 			if strings.Join(tt, "/") == path {
-				offset = f.Offset(&info)
+				offset = f.Offset(info)
 				length = f.Length
 				found = true
 			}
