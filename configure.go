@@ -27,13 +27,16 @@ func run(c *cli.Context) error {
 	// Setting HTTP Client
 	myTransport := &http.Transport{
 		MaxIdleConns:        500,
-		MaxIdleConnsPerHost: 50,
+		MaxIdleConnsPerHost: 500,
+		MaxConnsPerHost:     500,
+		IdleConnTimeout:     90 * time.Second,
 		Dial: (&net.Dialer{
-			Timeout: 5 * time.Minute,
+			Timeout:   1 * time.Minute,
+			KeepAlive: 1 * time.Minute,
 		}).Dial,
 	}
 	cl := &http.Client{
-		Timeout:   5 * time.Minute,
+		Timeout:   1 * time.Minute,
 		Transport: myTransport,
 	}
 
