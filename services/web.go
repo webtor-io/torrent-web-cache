@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -106,7 +107,7 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 		w.Header().Add("Content-Type", "application/octet-stream")
 		w.Header().Add("Content-Disposition", "attachment; filename=\""+downloadFile+"\"")
 	}
-	tr, u, p, err := s.rp.Get(r.Context(), url, piece, pid)
+	tr, u, p, err := s.rp.Get(context.Background(), url, piece, pid)
 	if err != nil {
 		log.WithError(err).Errorf("Failed to get reader for url=%v", url)
 		w.WriteHeader(500)

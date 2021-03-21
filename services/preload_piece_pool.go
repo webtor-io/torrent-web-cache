@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	PRELOAD_TTL        = 60
+	PRELOAD_TTL        = 10
 	PRELOAD_CACHE_PATH = "cache"
 )
 
