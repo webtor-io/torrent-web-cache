@@ -132,7 +132,7 @@ func (s *PiecePreloader) preload() error {
 		log.Infof("Start preloading hash=%v piece=%v", s.h, s.p)
 		r, err := s.pp.Get(s.ctx, s.src, s.h, s.p, s.q, 0, 0, true)
 		if err != nil {
-			errors.Wrapf(err, "Failed to preload piece=%v", s.p)
+			return errors.Wrapf(err, "Failed to preload piece=%v", s.p)
 		}
 		f, err := os.Create(path)
 		if err != nil {
