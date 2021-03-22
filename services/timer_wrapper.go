@@ -18,6 +18,7 @@ func (s *TimerWrapper) Get() *time.Timer {
 	if s.inited {
 		return s.t
 	}
+	s.inited = true
 	s.t = time.NewTimer(s.d)
 	return s.t
 }
