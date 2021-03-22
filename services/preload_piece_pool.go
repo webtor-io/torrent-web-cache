@@ -240,8 +240,8 @@ func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 	t, tLoaded := s.timers.LoadOrStore(p, NewTimerWrapper(s.expire))
 	timer := t.(*TimerWrapper)
 	if !tLoaded {
-		go func() {
-			<-timer.Get().C
+		go func(t *TimerWrapper) {
+			<-t.Get().C
 			log.Infof("Clean preloaded piece hash=%v piece=%v", h, p)
 			s.sm.Delete(p)
 			s.timers.Delete(p)
@@ -249,7 +249,7 @@ func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 			if err != nil {
 				log.WithError(err).Warnf("Failed to clean preloaded piece hash=%v piece=%v", h, p)
 			}
-		}()
+		}(timer)
 		v.(*PiecePreloader).Preload()
 	} else {
 		timer.Get().Reset(s.expire)

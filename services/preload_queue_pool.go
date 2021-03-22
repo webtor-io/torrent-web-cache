@@ -31,13 +31,13 @@ func (s *PreloadQueuePool) Push(key string, src string, h string, p string, q st
 	timer := t.(*TimerWrapper)
 	if !tLoaded {
 		log.Infof("New preload queue key=%v", key)
-		go func() {
-			<-timer.Get().C
+		go func(t *TimerWrapper) {
+			<-t.Get().C
 			log.Infof("Clean preload queue key=%v", key)
 			s.sm.Delete(key)
 			s.timers.Delete(key)
 			v.(*PreloadQueue).Close()
-		}()
+		}(timer)
 	} else {
 		timer.Get().Reset(s.expire)
 	}
