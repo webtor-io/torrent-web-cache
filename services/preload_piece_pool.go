@@ -25,6 +25,7 @@ type PreloadReader struct {
 	f      *os.File
 	h      string
 	p      string
+	lb     *LeakyBuffer
 	closed bool
 }
 
@@ -51,8 +52,8 @@ type PiecePreloader struct {
 	mux    sync.Mutex
 }
 
-func NewPreloadReader(f *os.File, r io.Reader, h string, p string) *PreloadReader {
-	return &PreloadReader{f: f, r: r, h: h, p: p}
+func NewPreloadReader(f *os.File, r io.Reader, lb *LeakyBuffer, h string, p string) *PreloadReader {
+	return &PreloadReader{f: f, r: r, h: h, p: p, lb: lb}
 }
 
 func (s *PreloadReader) Read(p []byte) (n int, err error) {
@@ -63,7 +64,10 @@ func (r *PreloadReader) WriteTo(w io.Writer) (n int64, err error) {
 	if l, ok := r.r.(io.WriterTo); ok {
 		return l.WriteTo(w)
 	}
-	return io.Copy(w, r.r)
+	buf := r.lb.Get()
+	n, err = io.CopyBuffer(w, r.r, buf)
+	r.lb.Put(buf)
+	return
 }
 
 func (s *PreloadReader) Close() error {
@@ -104,14 +108,14 @@ func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, 
 		return nil, s.err
 	}
 	if full {
-		return NewPreloadReader(f, f, s.h, s.p), nil
+		return NewPreloadReader(f, f, s.lb, s.h, s.p), nil
 	} else {
 		_, err := f.Seek(start, io.SeekStart)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to seek to %v in piece=%v", start, s.p)
 		}
 		lr := io.LimitReader(f, end-start+1)
-		return NewPreloadReader(f, lr, s.h, s.p), nil
+		return NewPreloadReader(f, lr, s.lb, s.h, s.p), nil
 	}
 }
 func (s *PiecePreloader) Clean() error {
@@ -153,7 +157,7 @@ func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p stri
 	if ok {
 		tt, ok := s.timers.Load(p)
 		if ok {
-			tt.(*time.Timer).Reset(s.expire)
+			tt.(*TimerWrapper).Get().Reset(s.expire)
 		}
 		return v.(*PiecePreloader).Get(start, end, full)
 	}
@@ -233,11 +237,11 @@ func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 		s.inited = true
 	}
 	v, _ := s.sm.LoadOrStore(p, NewPiecePreloader(context.Background(), s.pp, s.lb, src, h, p, q))
-	t, tLoaded := s.timers.LoadOrStore(p, time.NewTimer(s.expire))
-	timer := t.(*time.Timer)
+	t, tLoaded := s.timers.LoadOrStore(p, NewTimerWrapper(s.expire))
+	timer := t.(*TimerWrapper)
 	if !tLoaded {
 		go func() {
-			<-timer.C
+			<-timer.Get().C
 			log.Infof("Clean preloaded piece hash=%v piece=%v", h, p)
 			s.sm.Delete(p)
 			s.timers.Delete(p)
@@ -248,6 +252,6 @@ func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 		}()
 		v.(*PiecePreloader).Preload()
 	} else {
-		timer.Reset(s.expire)
+		timer.Get().Reset(s.expire)
 	}
 }
