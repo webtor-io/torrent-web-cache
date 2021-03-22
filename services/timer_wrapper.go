@@ -1,6 +1,7 @@
 package services
 
 import (
+	"sync"
 	"time"
 )
 
@@ -8,6 +9,7 @@ type TimerWrapper struct {
 	t      *time.Timer
 	d      time.Duration
 	inited bool
+	mux    sync.Mutex
 }
 
 func NewTimerWrapper(d time.Duration) *TimerWrapper {
@@ -15,6 +17,8 @@ func NewTimerWrapper(d time.Duration) *TimerWrapper {
 }
 
 func (s *TimerWrapper) Get() *time.Timer {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	if s.inited {
 		return s.t
 	}
