@@ -65,10 +65,10 @@ func run(c *cli.Context) error {
 	pp := s.NewPiecePool(cpp, s3pp, httppp)
 
 	// Setting Leaky Buffer
-	lb := s.NewLeakyBuffer(100, 32*1024)
+	lb := s.NewLeakyBuffer(1000, 32*1024)
 
 	// Setting Preload Piece Pool
-	ppp := s.NewPreloadPiecePool(pp)
+	ppp := s.NewPreloadPiecePool(pp, lb)
 	defer ppp.Close()
 
 	// Setting Preload Queue Pool
@@ -82,7 +82,7 @@ func run(c *cli.Context) error {
 	defer probe.Close()
 
 	// Setting WebService
-	web := s.NewWeb(c, rp, cpp)
+	web := s.NewWeb(c, rp, cpp, lb)
 	defer web.Close()
 
 	// Setting ServeService

@@ -6,11 +6,12 @@ import (
 )
 
 type RWConnector struct {
-	w http.ResponseWriter
+	w  http.ResponseWriter
+	lb *LeakyBuffer
 }
 
-func NewRWConnector(w http.ResponseWriter) *RWConnector {
-	return &RWConnector{w: w}
+func NewRWConnector(w http.ResponseWriter, lb *LeakyBuffer) *RWConnector {
+	return &RWConnector{w: w, lb: lb}
 }
 
 func (s *RWConnector) Flush() {
@@ -26,7 +27,10 @@ func (s *RWConnector) ReadFrom(r io.Reader) (n int64, err error) {
 			return rr.WriteTo(s.w)
 		}
 	} else {
-		return io.Copy(s.w, r)
+		buf := s.lb.Get()
+		n, err = io.CopyBuffer(s.w, r, buf)
+		s.lb.Put(buf)
+		return
 	}
 	return
 }

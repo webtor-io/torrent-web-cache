@@ -24,6 +24,7 @@ type Web struct {
 	ln   net.Listener
 	rp   *ReaderPool
 	cp   *CompletedPiecesPool
+	lb   *LeakyBuffer
 	rate string
 }
 
@@ -33,8 +34,8 @@ const (
 	WEB_SOURCE_URL = "source-url"
 )
 
-func NewWeb(c *cli.Context, rp *ReaderPool, cp *CompletedPiecesPool) *Web {
-	return &Web{cp: cp, src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp}
+func NewWeb(c *cli.Context, rp *ReaderPool, cp *CompletedPiecesPool, lb *LeakyBuffer) *Web {
+	return &Web{cp: cp, src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp, lb: lb}
 }
 
 func RegisterWebFlags(c *cli.App) {
@@ -117,7 +118,7 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 		http.Redirect(w, r, u, 302)
 		return
 	}
-	http.ServeContent(NewRWConnector(w), r, p, time.Unix(0, 0), tr)
+	http.ServeContent(NewRWConnector(w, s.lb), r, p, time.Unix(0, 0), tr)
 }
 
 func (s *Web) Serve() error {

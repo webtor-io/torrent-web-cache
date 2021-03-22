@@ -33,6 +33,7 @@ type PreloadPiecePool struct {
 	sm       sync.Map
 	timers   sync.Map
 	expire   time.Duration
+	lb       *LeakyBuffer
 	inited   bool
 	cleaning bool
 }
@@ -45,6 +46,7 @@ type PiecePreloader struct {
 	q      string
 	err    error
 	inited bool
+	lb     *LeakyBuffer
 	ctx    context.Context
 	mux    sync.Mutex
 }
@@ -74,9 +76,9 @@ func (s *PreloadReader) Close() error {
 	return nil
 }
 
-func NewPiecePreloader(ctx context.Context, pp *PiecePool, src string, h string, p string, q string) *PiecePreloader {
+func NewPiecePreloader(ctx context.Context, pp *PiecePool, lb *LeakyBuffer, src string, h string, p string, q string) *PiecePreloader {
 	return &PiecePreloader{ctx: ctx, pp: pp, src: src,
-		h: h, p: p, q: q}
+		h: h, p: p, q: q, lb: lb}
 }
 
 func (s *PiecePreloader) Preload() {
@@ -132,7 +134,9 @@ func (s *PiecePreloader) preload() error {
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create preload file piece=%v path=%v", s.p, path)
 		}
-		_, err = io.Copy(f, r)
+		buf := s.lb.Get()
+		_, err = io.CopyBuffer(f, r, buf)
+		s.lb.Put(buf)
 		return err
 	} else {
 		log.Infof("Preload data already exists hash=%v piece=%v", s.h, s.p)
@@ -140,8 +144,8 @@ func (s *PiecePreloader) preload() error {
 	}
 }
 
-func NewPreloadPiecePool(pp *PiecePool) *PreloadPiecePool {
-	return &PreloadPiecePool{pp: pp, expire: time.Duration(PRELOAD_TTL) * time.Second}
+func NewPreloadPiecePool(pp *PiecePool, lb *LeakyBuffer) *PreloadPiecePool {
+	return &PreloadPiecePool{pp: pp, lb: lb, expire: time.Duration(PRELOAD_TTL) * time.Second}
 }
 
 func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p string, q string, start int64, end int64, full bool) (io.ReadCloser, error) {
@@ -228,7 +232,7 @@ func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 		}()
 		s.inited = true
 	}
-	v, _ := s.sm.LoadOrStore(p, NewPiecePreloader(context.Background(), s.pp, src, h, p, q))
+	v, _ := s.sm.LoadOrStore(p, NewPiecePreloader(context.Background(), s.pp, s.lb, src, h, p, q))
 	t, tLoaded := s.timers.LoadOrStore(p, time.NewTimer(s.expire))
 	timer := t.(*time.Timer)
 	if !tLoaded {
