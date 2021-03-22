@@ -143,6 +143,11 @@ func (s *PiecePreloader) preload() error {
 		s.lb.Put(buf)
 		return err
 	} else {
+		t := time.Now().Local()
+		err := os.Chtimes(path, t, t)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to change preload file modification date piece=%v path=%v", s.p, path)
+		}
 		log.Infof("Preload data already exists hash=%v piece=%v", s.h, s.p)
 		return nil
 	}
@@ -153,6 +158,14 @@ func NewPreloadPiecePool(pp *PiecePool, lb *LeakyBuffer) *PreloadPiecePool {
 }
 
 func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p string, q string, start int64, end int64, full bool) (io.ReadCloser, error) {
+	path := PRELOAD_CACHE_PATH + "/" + p
+	exists := true
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		exists = false
+	}
+	if exists {
+		s.Preload(src, h, p, q)
+	}
 	v, ok := s.sm.Load(p)
 	if ok {
 		tt, ok := s.timers.Load(p)

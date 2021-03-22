@@ -104,6 +104,7 @@ func (r *Reader) getReader(limit int64) (io.Reader, error) {
 	} else {
 		pr = r.cr
 	}
+	r.pqp.Push(r.pid, r.src, r.hash, i.Piece(int(pieceNum)).Hash().HexString(), r.query)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get Piece data")
 	}
