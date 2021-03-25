@@ -1,5 +1,6 @@
 # code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 ## explicit
+code.cloudfoundry.org/bytefmt
 # github.com/anacrolix/missinggo v1.2.1
 github.com/anacrolix/missinggo
 github.com/anacrolix/missinggo/expect

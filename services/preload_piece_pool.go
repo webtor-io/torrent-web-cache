@@ -10,15 +10,26 @@ import (
 	"sync"
 	"time"
 
+	"code.cloudfoundry.org/bytefmt"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 const (
-	PRELOAD_TTL            = 10
-	PRELOAD_CACHE_PATH     = "cache"
-	PRELOAD_CACHE_MAX_SIZE = 10_000_000_000
+	PRELOAD_TTL             = 10
+	PRELOAD_CACHE_PATH      = "cache"
+	PRELOAD_CACHE_SIZE_FLAG = "preload-cache-size"
 )
+
+func RegisterPreloadFlags(c *cli.App) {
+	c.Flags = append(c.Flags, cli.StringFlag{
+		Name:   PRELOAD_CACHE_SIZE_FLAG,
+		Usage:  "preload cache size",
+		Value:  "10G",
+		EnvVar: "PRELOAD_CACHE_SIZE",
+	})
+}
 
 type PreloadReader struct {
 	r      io.Reader
@@ -30,13 +41,14 @@ type PreloadReader struct {
 }
 
 type PreloadPiecePool struct {
-	pp       *PiecePool
-	sm       sync.Map
-	timers   sync.Map
-	expire   time.Duration
-	lb       *LeakyBuffer
-	inited   bool
-	cleaning bool
+	pp        *PiecePool
+	sm        sync.Map
+	timers    sync.Map
+	expire    time.Duration
+	lb        *LeakyBuffer
+	inited    bool
+	cleaning  bool
+	cacheSize uint64
 }
 
 type PiecePreloader struct {
@@ -153,8 +165,17 @@ func (s *PiecePreloader) preload() error {
 	}
 }
 
-func NewPreloadPiecePool(pp *PiecePool, lb *LeakyBuffer) *PreloadPiecePool {
-	return &PreloadPiecePool{pp: pp, lb: lb, expire: time.Duration(PRELOAD_TTL) * time.Second}
+func NewPreloadPiecePool(c *cli.Context, pp *PiecePool, lb *LeakyBuffer) (*PreloadPiecePool, error) {
+	pcs, err := bytefmt.ToBytes(c.String(PRELOAD_CACHE_SIZE_FLAG))
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to parse preload cache size %v", c.String(PRELOAD_CACHE_SIZE_FLAG))
+	}
+	return &PreloadPiecePool{
+		pp:        pp,
+		lb:        lb,
+		expire:    time.Duration(PRELOAD_TTL) * time.Second,
+		cacheSize: pcs,
+	}, nil
 }
 
 func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p string, q string, start int64, end int64, full bool) (io.ReadCloser, error) {
@@ -190,20 +211,20 @@ func (s *PreloadPiecePool) cleanCache() error {
 	defer func() {
 		s.cleaning = false
 	}()
-	var size int64
+	var size uint64
 	err := filepath.Walk(PRELOAD_CACHE_PATH, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() {
-			size += info.Size()
+			size += uint64(info.Size())
 		}
 		return err
 	})
 	if err != nil {
 		return err
 	}
-	if size < PRELOAD_CACHE_MAX_SIZE {
+	if size < s.cacheSize {
 		return nil
 	}
 	files, err := ioutil.ReadDir(PRELOAD_CACHE_PATH)
@@ -223,8 +244,8 @@ func (s *PreloadPiecePool) cleanCache() error {
 			return err
 		}
 		log.Infof("Clean cache file name=%v time=%v size=%v", f.Name(), f.ModTime(), f.Size())
-		size = size - f.Size()
-		if size < PRELOAD_CACHE_MAX_SIZE {
+		size = size - uint64(f.Size())
+		if size < s.cacheSize {
 			return nil
 		}
 	}

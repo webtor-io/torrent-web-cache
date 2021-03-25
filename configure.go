@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/pkg/errors"
+
 	"github.com/urfave/cli"
 	cs "github.com/webtor-io/common-services"
 	s "github.com/webtor-io/torrent-web-cache/services"
@@ -68,7 +69,10 @@ func run(c *cli.Context) error {
 	lb := s.NewLeakyBuffer(1000, 32*1024)
 
 	// Setting Preload Piece Pool
-	ppp := s.NewPreloadPiecePool(pp, lb)
+	ppp, err := s.NewPreloadPiecePool(c, pp, lb)
+	if err != nil {
+		return errors.Wrap(err, "Failed to setup Preload Piece Pool")
+	}
 	defer ppp.Close()
 
 	// Setting Preload Queue Pool
@@ -89,9 +93,5 @@ func run(c *cli.Context) error {
 	serve := cs.NewServe(probe, web)
 
 	// And SERVE!
-	err := serve.Serve()
-	if err != nil {
-		log.WithError(err).Error("Got server error")
-	}
-	return nil
+	return serve.Serve()
 }

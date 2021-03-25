@@ -3,7 +3,7 @@ module github.com/webtor-io/torrent-web-cache
 go 1.16
 
 require (
-	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48 // indirect
+	code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 	github.com/anacrolix/torrent v1.15.2
 	github.com/aws/aws-sdk-go v1.36.28
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
