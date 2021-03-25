@@ -18,6 +18,7 @@ func configure(app *cli.App) {
 	cs.RegisterS3ClientFlags(app)
 	s.RegisterS3StorageFlags(app)
 	s.RegisterWebFlags(app)
+	s.RegisterPreloadFlags(app)
 	app.Action = run
 }
 
