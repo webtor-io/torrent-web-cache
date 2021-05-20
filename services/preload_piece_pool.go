@@ -33,7 +33,7 @@ func RegisterPreloadFlags(c *cli.App) {
 	c.Flags = append(c.Flags, cli.BoolTFlag{
 		Name:   PRELOAD_CLEAR_CACHE_ON_EXIT_FLAG,
 		Usage:  "preload clear cache on exit",
-		EnvVar: "PRELOAD_CLEAR_CACHE_ON_EXIT_FLAG",
+		EnvVar: "PRELOAD_CLEAR_CACHE_ON_EXIT",
 	})
 }
 
