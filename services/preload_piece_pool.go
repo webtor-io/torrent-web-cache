@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	PRELOAD_TTL             = 10
-	PRELOAD_CACHE_PATH      = "cache"
-	PRELOAD_CACHE_SIZE_FLAG = "preload-cache-size"
+	PRELOAD_TTL                      = 10
+	PRELOAD_CACHE_PATH               = "cache"
+	PRELOAD_CLEAR_CACHE_ON_EXIT_FLAG = "preload-clear-cache-on-exit"
+	PRELOAD_CACHE_SIZE_FLAG          = "preload-cache-size"
 )
 
 func RegisterPreloadFlags(c *cli.App) {
@@ -28,6 +29,11 @@ func RegisterPreloadFlags(c *cli.App) {
 		Usage:  "preload cache size",
 		Value:  "10G",
 		EnvVar: "PRELOAD_CACHE_SIZE",
+	})
+	c.Flags = append(c.Flags, cli.BoolTFlag{
+		Name:   PRELOAD_CLEAR_CACHE_ON_EXIT_FLAG,
+		Usage:  "preload clear cache on exit",
+		EnvVar: "PRELOAD_CLEAR_CACHE_ON_EXIT_FLAG",
 	})
 }
 
@@ -41,14 +47,15 @@ type PreloadReader struct {
 }
 
 type PreloadPiecePool struct {
-	pp        *PiecePool
-	sm        sync.Map
-	timers    sync.Map
-	expire    time.Duration
-	lb        *LeakyBuffer
-	inited    bool
-	cleaning  bool
-	cacheSize uint64
+	pp               *PiecePool
+	sm               sync.Map
+	timers           sync.Map
+	expire           time.Duration
+	lb               *LeakyBuffer
+	inited           bool
+	cleaning         bool
+	cacheSize        uint64
+	clearCacheOnExit bool
 }
 
 type PiecePreloader struct {
@@ -171,10 +178,11 @@ func NewPreloadPiecePool(c *cli.Context, pp *PiecePool, lb *LeakyBuffer) (*Prelo
 		return nil, errors.Wrapf(err, "Failed to parse preload cache size %v", c.String(PRELOAD_CACHE_SIZE_FLAG))
 	}
 	return &PreloadPiecePool{
-		pp:        pp,
-		lb:        lb,
-		expire:    time.Duration(PRELOAD_TTL) * time.Second,
-		cacheSize: pcs,
+		pp:               pp,
+		lb:               lb,
+		expire:           time.Duration(PRELOAD_TTL) * time.Second,
+		clearCacheOnExit: c.Bool(PRELOAD_CLEAR_CACHE_ON_EXIT_FLAG),
+		cacheSize:        pcs,
 	}, nil
 }
 
@@ -198,6 +206,9 @@ func (s *PreloadPiecePool) Get(ctx context.Context, src string, h string, p stri
 	return s.pp.Get(ctx, src, h, p, q, start, end, full)
 }
 func (s *PreloadPiecePool) Close() {
+	if !s.clearCacheOnExit {
+		return
+	}
 	err := os.RemoveAll(PRELOAD_CACHE_PATH)
 	if err != nil {
 		log.WithError(err).Warnf("Failed to clean cache folder path=%v", PRELOAD_CACHE_PATH)
