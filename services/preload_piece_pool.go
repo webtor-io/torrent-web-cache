@@ -18,6 +18,7 @@ import (
 
 const (
 	PRELOAD_TTL                      = 10
+	PRELOAD_TIMEOUT                  = 60
 	PRELOAD_CACHE_PATH               = "cache"
 	PRELOAD_CLEAR_CACHE_ON_EXIT_FLAG = "preload-clear-cache-on-exit"
 	PRELOAD_CACHE_SIZE_FLAG          = "preload-cache-size"
@@ -104,14 +105,15 @@ func NewPiecePreloader(ctx context.Context, pp *PiecePool, lb *LeakyBuffer, src 
 		h: h, p: p, q: q, lb: lb}
 }
 
-func (s *PiecePreloader) Preload() {
-	if s.inited {
-		return
-	}
+func (s *PiecePreloader) Preload() error {
 	s.mux.Lock()
-	s.inited = true
 	defer s.mux.Unlock()
+	if s.inited {
+		return s.err
+	}
 	s.err = s.preload()
+	s.inited = true
+	return s.err
 }
 
 func (s *PiecePreloader) Get(start int64, end int64, full bool) (io.ReadCloser, error) {
@@ -269,7 +271,7 @@ func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 			log.WithError(err).Warnf("Failed to create cache folder path=%v", PRELOAD_CACHE_PATH)
 		}
 		go func() {
-			ticker := time.NewTicker(5 * time.Minute)
+			ticker := time.NewTicker(time.Duration(PRELOAD_TIMEOUT) * time.Second)
 			for range ticker.C {
 				go func() {
 					err := s.cleanCache()
@@ -281,7 +283,9 @@ func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 		}()
 		s.inited = true
 	}
-	v, _ := s.sm.LoadOrStore(p, NewPiecePreloader(context.Background(), s.pp, s.lb, src, h, p, q))
+	pCtx, pC := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer pC()
+	v, _ := s.sm.LoadOrStore(p, NewPiecePreloader(pCtx, s.pp, s.lb, src, h, p, q))
 	t, tLoaded := s.timers.LoadOrStore(p, NewTimerWrapper(s.expire))
 	timer := t.(*TimerWrapper)
 	if !tLoaded {
@@ -295,7 +299,12 @@ func (s *PreloadPiecePool) Preload(src string, h string, p string, q string) {
 				log.WithError(err).Warnf("Failed to clean preloaded piece hash=%v piece=%v", h, p)
 			}
 		}(timer)
-		v.(*PiecePreloader).Preload()
+		err := v.(*PiecePreloader).Preload()
+		if err != nil {
+			s.sm.Delete(p)
+			s.timers.Delete(p)
+			log.WithError(err).Warnf("Failed to preload piece hash=%v piece=%v", h, p)
+		}
 	} else {
 		timer.Get().Reset(s.expire)
 	}
