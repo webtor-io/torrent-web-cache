@@ -149,20 +149,28 @@ func (s *PiecePreloader) Clean() error {
 
 func (s *PiecePreloader) preload() error {
 	path := PRELOAD_CACHE_PATH + "/" + s.p
+	tempPath := PRELOAD_CACHE_PATH + "/_" + s.p
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		log.Infof("Start preloading hash=%v piece=%v", s.h, s.p)
 		r, err := s.pp.Get(s.ctx, s.src, s.h, s.p, s.q, 0, 0, true)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to preload piece=%v", s.p)
 		}
-		f, err := os.Create(path)
+		f, err := os.Create(tempPath)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to create preload file piece=%v path=%v", s.p, path)
+			return errors.Wrapf(err, "Failed to create preload file piece=%v path=%v", s.p, tempPath)
 		}
 		buf := s.lb.Get()
 		_, err = io.CopyBuffer(f, r, buf)
 		s.lb.Put(buf)
-		return err
+		if err != nil {
+			return errors.Wrapf(err, "Failed to write preload file piece=%v path=%v", s.p, tempPath)
+		}
+		err = os.Rename(tempPath, path)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to rename file from=%v to=%v", tempPath, path)
+		}
+		return nil
 	} else {
 		t := time.Now().Local()
 		err := os.Chtimes(path, t, t)
