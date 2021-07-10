@@ -262,9 +262,10 @@ func (s *PreloadPiecePool) cleanCache() error {
 		path := PRELOAD_CACHE_PATH + "/" + f.Name()
 		err := os.Remove(path)
 		if err != nil {
-			return err
+			log.WithError(err).Warnf("Failed to clean cache file name=%v time=%v size=%v", f.Name(), f.ModTime(), f.Size())
+		} else {
+			log.Infof("Clean cache file name=%v time=%v size=%v", f.Name(), f.ModTime(), f.Size())
 		}
-		log.Infof("Clean cache file name=%v time=%v size=%v", f.Name(), f.ModTime(), f.Size())
 		size = size - uint64(f.Size())
 		if size < s.cacheSize {
 			return nil
