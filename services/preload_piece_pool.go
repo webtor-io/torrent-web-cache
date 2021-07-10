@@ -235,22 +235,22 @@ func (s *PreloadPiecePool) cleanCache() error {
 	var size uint64
 	err := filepath.Walk(PRELOAD_CACHE_PATH, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return nil
 		}
 		if !info.IsDir() {
 			size += uint64(info.Size())
 		}
-		return err
+		return nil
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Failed to calc cache size")
 	}
 	if size < s.cacheSize {
 		return nil
 	}
 	files, err := ioutil.ReadDir(PRELOAD_CACHE_PATH)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Failed to read cache dir")
 	}
 	sort.Slice(files, func(i, j int) bool {
 		return files[i].ModTime().Before(files[j].ModTime())
