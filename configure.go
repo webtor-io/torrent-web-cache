@@ -86,8 +86,11 @@ func run(c *cli.Context) error {
 	probe := cs.NewProbe(c)
 	defer probe.Close()
 
+	// Setting HTTP Proxy Map
+	proxyMap := s.NewHTTPProxyMap()
+
 	// Setting WebService
-	web := s.NewWeb(c, rp, cpp, lb)
+	web := s.NewWeb(c, rp, cpp, lb, proxyMap)
 	defer web.Close()
 
 	// Setting ServeService

@@ -25,7 +25,7 @@ type Web struct {
 	rp   *ReaderPool
 	cp   *CompletedPiecesPool
 	lb   *LeakyBuffer
-	rate string
+	pm   *HTTPProxyMap
 }
 
 const (
@@ -34,8 +34,16 @@ const (
 	WEB_SOURCE_URL = "source-url"
 )
 
-func NewWeb(c *cli.Context, rp *ReaderPool, cp *CompletedPiecesPool, lb *LeakyBuffer) *Web {
-	return &Web{cp: cp, src: c.String(WEB_SOURCE_URL), host: c.String(WEB_HOST_FLAG), port: c.Int(WEB_PORT_FLAG), rp: rp, lb: lb}
+func NewWeb(c *cli.Context, rp *ReaderPool, cp *CompletedPiecesPool, lb *LeakyBuffer, pm *HTTPProxyMap) *Web {
+	return &Web{
+		cp:   cp,
+		src:  c.String(WEB_SOURCE_URL),
+		host: c.String(WEB_HOST_FLAG),
+		port: c.Int(WEB_PORT_FLAG),
+		rp:   rp,
+		lb:   lb,
+		pm:   pm,
+	}
 }
 
 func RegisterWebFlags(c *cli.App) {
@@ -113,12 +121,17 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 		w.WriteHeader(500)
 		return
 	}
-	defer tr.Close()
-	if u != "" {
-		http.Redirect(w, r, u, 302)
-		return
+	if tr != nil {
+		defer tr.Close()
 	}
-	http.ServeContent(NewRWConnector(w, s.lb), r, p, time.Unix(0, 0), tr)
+	if u != nil {
+		pr := s.pm.Get(u)
+		r.URL = u
+		pr.ServeHTTP(w, r)
+		return
+	} else {
+		http.ServeContent(NewRWConnector(w, s.lb), r, p, time.Unix(0, 0), tr)
+	}
 }
 
 func (s *Web) Serve() error {

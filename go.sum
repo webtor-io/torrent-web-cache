@@ -352,6 +352,8 @@ github.com/webtor-io/common-services v0.0.0-20210118175658-d7f255cee0b0 h1:zL6D3
 github.com/webtor-io/common-services v0.0.0-20210118175658-d7f255cee0b0/go.mod h1:f7q/ORg/0WyCnl8YLbNABHRHO7IfgBCKvXe1yjkAMlk=
 github.com/webtor-io/common-services v0.0.0-20210118183811-6963f3b0958e h1:Evsiw5gblu5gJfa8YxktmI/Yso42gPNTCGs5Bg1LzY8=
 github.com/webtor-io/common-services v0.0.0-20210118183811-6963f3b0958e/go.mod h1:f7q/ORg/0WyCnl8YLbNABHRHO7IfgBCKvXe1yjkAMlk=
+github.com/webtor-io/lazymap v0.0.0-20211026225627-43d8cd36cc4e h1:d9h7HPg1RWMiqCq7A1q65gRYPf3xz6IXhW8jkTkMVbg=
+github.com/webtor-io/lazymap v0.0.0-20211026225627-43d8cd36cc4e/go.mod h1:za/bioTGK3VjG3+mK7/kpx0TV8++ytZkdOQ1MJ2HTjM=
 github.com/webtor-io/torrent-store v0.0.0-20200408181732-515c7f32a3b4 h1:MgAvdKMMIHuNvHWWovKIc52pIuXRi09p0FCkDQ/Hcvc=
 github.com/webtor-io/torrent-store v0.0.0-20200408181732-515c7f32a3b4/go.mod h1:54BC8GoFIPk7HkAzRPUclR2K+JnjvFi19mL9oAiRsgg=
 github.com/webtor-io/video-info v0.0.0-20200424073806-ce31569b3a82 h1:p4TXa65vPcL5pLi9WojgRIWSOCrGzNuZ8bE1UjWf8K8=

@@ -21,10 +21,10 @@ func NewReaderPool(pp *PiecePool, mip *MetaInfoPool, ttp *TorrentTouchPool, lb *
 	return &ReaderPool{mip: mip, pp: pp, ttp: ttp, lb: lb, ppp: ppp, pqp: pqp}
 }
 
-func (rp *ReaderPool) Get(ctx context.Context, s string, piece string, pid string) (*Reader, string, string, error) {
+func (rp *ReaderPool) Get(ctx context.Context, s string, piece string, pid string) (*Reader, *url.URL, string, error) {
 	u, err := url.Parse(s)
 	if err != nil {
-		return nil, "", "", errors.Wrapf(err, "Failed to parse source url=%v", s)
+		return nil, nil, "", errors.Wrapf(err, "Failed to parse source url=%v", s)
 	}
 	parts := strings.SplitN(u.Path, "/", 3)
 	hash := parts[1]
@@ -33,10 +33,10 @@ func (rp *ReaderPool) Get(ctx context.Context, s string, piece string, pid strin
 	query := u.RawQuery
 	info, err := rp.mip.Get(hash)
 	if err != nil {
-		return nil, "", "", errors.Wrap(err, "Failed to get MetaInfo")
+		return nil, nil, "", errors.Wrap(err, "Failed to get MetaInfo")
 	}
 	if info == nil {
-		return nil, u.RequestURI(), "", nil
+		return nil, u, "", nil
 	}
 
 	var offset int64 = 0
@@ -54,7 +54,7 @@ func (rp *ReaderPool) Get(ctx context.Context, s string, piece string, pid strin
 			}
 		}
 		if !found {
-			return nil, "", "", errors.Errorf("Failed to find piece=%v", piece)
+			return nil, nil, "", errors.Errorf("Failed to find piece=%v", piece)
 		}
 		path = "/" + piece
 	} else {
@@ -71,14 +71,14 @@ func (rp *ReaderPool) Get(ctx context.Context, s string, piece string, pid strin
 		}
 
 		if !found {
-			return nil, "", "", errors.Errorf("File not found path=%v infohash=%v", path, hash)
+			return nil, nil, "", errors.Errorf("File not found path=%v infohash=%v", path, hash)
 		}
 	}
 	tr := NewReader(ctx, rp.mip, rp.ppp, rp.ttp, rp.lb, rp.pqp, src, hash, query, offset, length, pid)
 	if ok, err := tr.Ready(); err != nil {
-		return nil, "", "", errors.Wrap(err, "Failed to get reader ready state")
+		return nil, nil, "", errors.Wrap(err, "Failed to get reader ready state")
 	} else if !ok {
-		return nil, u.RequestURI(), "", nil
+		return nil, nil, "", nil
 	}
-	return tr, "", path, nil
+	return tr, nil, path, nil
 }

@@ -11,8 +11,9 @@
             "mode": "auto",
             "program": "${workspaceFolder}",
             "env": {},
-            "envFile": "/Volumes/Home/vintikzzzz/.env",
-            "args": []
+            "args": [
+                "--source-url", "http://torrent-http-proxy/30c858c906f379162863fffa08a92cd9c944681d/Golden%20State%20Warriors%20at%20Sacramento%20Kings%2024.10.21.mkv?api-key=8acbcf1e-732c-4574-a3bf-27e6a85b86f1"
+            ]
         }
     ]
 }
