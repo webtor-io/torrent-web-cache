@@ -115,7 +115,7 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 		w.Header().Add("Content-Type", "application/octet-stream")
 		w.Header().Add("Content-Disposition", "attachment; filename=\""+downloadFile+"\"")
 	}
-	tr, u, p, err := s.rp.Get(r.Context(), url, piece, pid)
+	tr, u, p, et, err := s.rp.Get(r.Context(), url, piece, pid)
 	if err != nil {
 		log.WithError(err).Errorf("Failed to get reader for url=%v", url)
 		w.WriteHeader(500)
@@ -130,6 +130,8 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 		pr.ServeHTTP(w, r)
 		return
 	} else {
+		w.Header().Set("ETag", et)
+		w.Header().Set("Last-Modified", time.Unix(0, 0).Format(http.TimeFormat))
 		http.ServeContent(NewRWConnector(w, s.lb), r, p, time.Unix(0, 0), tr)
 	}
 }
