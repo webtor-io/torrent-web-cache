@@ -130,7 +130,7 @@ func (s *Web) serveContent(w http.ResponseWriter, r *http.Request, piece string)
 		pr.ServeHTTP(w, r)
 		return
 	} else {
-		w.Header().Set("Etag", et)
+		w.Header().Set("Etag", fmt.Sprintf("\"%v\"", et))
 		w.Header().Set("Last-Modified", time.Unix(0, 0).Format(http.TimeFormat))
 		http.ServeContent(NewRWConnector(w, s.lb), r, p, time.Unix(0, 0), tr)
 	}
