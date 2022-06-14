@@ -153,20 +153,25 @@ func (s *Web) Serve() error {
 
 	mux.HandleFunc("/completed_pieces", func(w http.ResponseWriter, r *http.Request) {
 		s.addCORSHeaders(w, r)
-		url, err := s.getSourceURL(r)
-		if err != nil {
-			log.WithError(err).Errorf("Failed to get source url=%v", url)
-			w.WriteHeader(500)
-			return
+		hash := ""
+		if r.URL.Query().Get("hash") != "" {
+			hash = r.URL.Query().Get("hash")
+		} else {
+			url, err := s.getSourceURL(r)
+			if err != nil {
+				log.WithError(err).Errorf("Failed to get source url=%v", url)
+				w.WriteHeader(500)
+				return
+			}
+			u, err := uu.Parse(url)
+			if err != nil {
+				log.WithError(err).Errorf("Failed to parse source url=%v", url)
+				w.WriteHeader(500)
+				return
+			}
+			parts := strings.SplitN(u.Path, "/", 3)
+			hash = parts[1]
 		}
-		u, err := uu.Parse(url)
-		if err != nil {
-			log.WithError(err).Errorf("Failed to parse source url=%v", url)
-			w.WriteHeader(500)
-			return
-		}
-		parts := strings.SplitN(u.Path, "/", 3)
-		hash := parts[1]
 		cp, err := s.cp.Get(hash)
 		if err != nil {
 			log.WithError(err).Errorf("Failed get completed pieces hash=%v", hash)

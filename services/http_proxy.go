@@ -20,6 +20,7 @@ func NewHTTPProxyMap() *HTTPProxyMap {
 func (s *HTTPProxyMap) get(u *url.URL) *httputil.ReverseProxy {
 	uu, _ := url.Parse(u.Scheme + "://" + u.Host)
 	pr := httputil.NewSingleHostReverseProxy(uu)
+
 	pr.Director = func(r *http.Request) {
 		r.Header["X-Forwarded-For"] = nil
 	}
